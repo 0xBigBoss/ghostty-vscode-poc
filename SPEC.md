@@ -5,7 +5,7 @@ Validate whether a **WebGL2 renderer** + ghostty-web (wasm) path can replace xte
 
 ## Prior Art: ghostty-web (coder/ghostty-web)
 
-**Status as of Dec 2025:** Active, v0.4.0, 1.6k+ stars, npm published.
+**Status as of Jan 2026:** Active, v0.4.0, 1.6k+ stars, npm published (verified via [GitHub](https://github.com/coder/ghostty-web) and [npm](https://npmjs.com/package/ghostty-web)).
 
 Key facts:
 - **xterm.js API-compatible** wrapper around libghostty wasm (~400KB bundle)
@@ -73,18 +73,19 @@ Relevant ghostty files:
 2. Custom renderer reads cell data and uploads to data textures
 3. WebGL2 instanced draw renders cells using glyph atlas
 
-**Key question for PoC:** How does ghostty-web expose cell grid state? Options:
+**Key integration question** (addressed by Workstream 5): How does ghostty-web expose cell grid state? Options explored:
 - Canvas2D render callback interception
 - Direct wasm memory access via ghostty-web internals
 - Fork ghostty-web to expose `RenderState` directly
 
 ## Single Harness Structure
-One VS Code extension + webview that runs four switchable tests in order and emits JSON results.
+One VS Code extension + webview that runs five switchable tests in order and emits JSON results.
 
 1. **Webview Capability Probe**
 2. **SSBO Replacement Microbench (bg-only)**
 3. **Atlas Sampling Parity Test (text-only sampling mechanics)**
 4. **Wasm VT Baseline (feed/parse throughput)**
+5. **Cell-Grid Extraction Test (ghostty-web integration)**
 
 ## Workstream 1 — SSBO Replacement
 ### Strategy
@@ -141,7 +142,7 @@ Use **ghostty-web** (`npm install ghostty-web`) instead of building a custom was
 
 ### Setup
 ```bash
-npm install ghostty-web
+npm install ghostty-web@0.4.0
 ```
 
 ```typescript
@@ -176,18 +177,52 @@ await init();  // loads ~400KB wasm
 ### Output
 JSON payload logged to VS Code Output channel with device + capability metadata.
 
+## Workstream 5 — Cell-Grid Extraction from ghostty-web
+### Goal
+Validate that cell-grid state (bg color, fg color, glyph IDs per cell) can be extracted from ghostty-web for use by a custom WebGL renderer.
+
+### Investigation Approaches (in priority order)
+1. **RenderState API**: Check if ghostty-web exposes `RenderState` or equivalent via public API
+2. **Wasm memory access**: Directly read cell grid from wasm linear memory
+3. **Canvas interception**: Hook Canvas2D calls to extract rendered cell data
+4. **Fork ghostty-web**: Patch to expose internal `RenderState` struct
+
+### Test Implementation
+```typescript
+// Attempt to extract cell data after write()
+const term = new Terminal({ cols: 80, rows: 24 });
+term.write('\x1b[31mRed\x1b[0m Normal');
+
+// Try each extraction method and measure:
+// 1. Can we get per-cell bg/fg colors?
+// 2. Can we get glyph IDs or codepoints?
+// 3. What is the extraction latency?
+```
+
+### Metrics
+- `extractionViable`: boolean (any method works)
+- `extractionMethod`: which approach succeeded
+- `extractionLatencyMs`: time to extract full grid
+- `dataCompleteness`: what cell attributes are accessible (bg, fg, glyph, style)
+
+### Success Criteria
+- At least one extraction method yields per-cell bg/fg colors and glyph data.
+- Extraction latency < 1ms for 200x50 grid.
+- No per-cell JS callbacks required (batch access only).
+
 ## Go / No-Go
 **No-Go** if any of:
 - WebGL2 context cannot be created reliably in VS Code webview.
 - Instanced draw + `texelFetch` pipeline fails to compile/run.
-- Full-grid upload+draw is consistently frame-killing (e.g., p95 wait > 16ms).
+- Full-grid upload+draw exceeds Workstream 1 thresholds (p95 wait > 8ms).
 - ghostty-web wasm fails to load or run in VS Code webview.
+- Cell-grid extraction from ghostty-web is not viable (Workstream 5 fails).
 
 **Go** if:
 - WebGL2 is stable and microbench shows headroom.
 - Atlas parity is achieved without persistent seams.
 - ghostty-web VT throughput is stable in VS Code webview.
-- Clear integration path exists between ghostty-web and WebGL renderer.
+- Cell-grid extraction from ghostty-web is viable (Workstream 5 succeeds).
 
 ## Deliverables
 - VS Code extension with a single command to run all probes.
