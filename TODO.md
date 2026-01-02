@@ -11,9 +11,12 @@
 - [x] Fix ISSUE-1: Add wasmBundleSizeKb field, rename success->wasmLoadSuccess, initTimeMs->wasmInitTimeMs (iteration 2)
 - [x] Fix ISSUE-2: Create artifacts directory before write, add error handling (iteration 2)
 - [x] Recompile extension - success (iteration 2)
+- [x] Fix ISSUE-4: Measure actual wasm bundle size via fetch instead of hardcoding (iteration 3)
+- [x] Fix ISSUE-5: Add automated VS Code extension tests (iteration 3)
+- [x] Run npm test - all 5 tests pass (iteration 3)
 
 ## In Progress
-- [ ] Test wasm loading in VS Code webview (manual test needed)
+(none)
 
 ## Pending
 - [ ] Capture results in JSON to artifacts/
@@ -59,4 +62,6 @@ Check Developer Tools console (Help > Toggle Developer Tools) for:
 - [x] CSP properly configured
 - [x] JSON output includes wasmLoadSuccess, wasmInitTimeMs, wasmBundleSizeKb
 - [x] Artifacts directory created before write, errors handled
-- [ ] Manual VS Code test (requires user interaction)
+- [x] wasmBundleSizeKb measured dynamically via fetch (not hardcoded)
+- [x] Automated VS Code extension tests pass (5/5)
+- [x] Webview loads successfully in VS Code (verified via test)

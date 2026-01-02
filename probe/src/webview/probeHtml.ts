@@ -116,12 +116,25 @@ export function getProbeHtml(
           return results;
         }
 
+        // Measure actual wasm bundle size
+        try {
+          const wasmResponse = await fetch(WASM_URL);
+          if (wasmResponse.ok) {
+            const wasmBlob = await wasmResponse.blob();
+            results.wasmBundleSizeKb = Math.round(wasmBlob.size / 1024);
+            addResult(section, 'Wasm bundle size', \`\${results.wasmBundleSizeKb}KB\`, 'pass');
+          } else {
+            addResult(section, 'Wasm bundle size', 'Failed to fetch', 'warn');
+          }
+        } catch (fetchErr) {
+          addResult(section, 'Wasm bundle size', \`Error: \${fetchErr.message}\`, 'warn');
+        }
+
         // Initialize wasm
         addResult(section, 'Initializing wasm...', 'Please wait');
         const startInit = performance.now();
 
         // ghostty-web init() loads the wasm
-        // We need to check if there's a way to specify wasm URL
         if (typeof GhosttyWeb.init === 'function') {
           await GhosttyWeb.init();
         } else if (typeof GhosttyWeb.default?.init === 'function') {
@@ -131,11 +144,8 @@ export function getProbeHtml(
         const initTime = performance.now() - startInit;
         results.wasmInitTimeMs = initTime;
         results.wasmLoadSuccess = true;
-        // ghostty-vt.wasm is ~413KB per ghostty-web package
-        results.wasmBundleSizeKb = 413;
 
         addResult(section, 'Wasm initialized', \`\${initTime.toFixed(2)}ms\`, initTime < 500 ? 'pass' : 'warn');
-        addResult(section, 'Wasm bundle size', \`\${results.wasmBundleSizeKb}KB\`, 'pass');
 
         // Try to create a terminal
         terminalContainer.classList.add('visible');
