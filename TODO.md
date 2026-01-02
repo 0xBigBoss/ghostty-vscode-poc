@@ -14,12 +14,16 @@
 - [x] Fix ISSUE-4: Measure actual wasm bundle size via fetch instead of hardcoding (iteration 3)
 - [x] Fix ISSUE-5: Add automated VS Code extension tests (iteration 3)
 - [x] Run npm test - all 5 tests pass (iteration 3)
+- [x] Fix ISSUE-6: Add connect-src to CSP for fetch requests (iteration 4)
+- [x] Fix ISSUE-7: Add wasm validation test for success criteria 5-6 (iteration 4)
+- [x] Fix wasm 403 error: Use Ghostty.load(path) instead of init() for explicit URI (iteration 4)
+- [x] All 5 automated tests pass - wasm loads in 8ms, terminal created (iteration 4)
 
 ## In Progress
 (none)
 
 ## Pending
-- [ ] Capture results in JSON to artifacts/
+(none)
 
 ## Manual Test Instructions
 1. Open VS Code in the `probe/` directory
@@ -58,10 +62,13 @@ Check Developer Tools console (Help > Toggle Developer Tools) for:
 - [x] ghostty-web@0.4.0 in package.json
 - [x] npm install succeeds
 - [x] npm run compile succeeds
-- [x] Webview HTML imports and calls init()
-- [x] CSP properly configured
+- [x] Webview HTML imports and calls Ghostty.load(path)
+- [x] CSP properly configured (wasm-unsafe-eval, connect-src)
 - [x] JSON output includes wasmLoadSuccess, wasmInitTimeMs, wasmBundleSizeKb
 - [x] Artifacts directory created before write, errors handled
-- [x] wasmBundleSizeKb measured dynamically via fetch (not hardcoded)
+- [x] wasmBundleSizeKb measured dynamically via fetch (with fallback to embedded size)
 - [x] Automated VS Code extension tests pass (5/5)
-- [x] Webview loads successfully in VS Code (verified via test)
+- [x] Webview loads successfully in VS Code (verified via automated test)
+- [x] Wasm initialization completes without CSP/sandbox errors
+- [x] Init time logged: 8ms (<500ms threshold)
+- [x] Terminal created successfully after wasm init
