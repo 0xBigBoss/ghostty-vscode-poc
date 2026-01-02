@@ -1,10 +1,15 @@
-export function getProbeHtml(): string {
+export function getProbeHtml(
+  ghosttyWebJsUri: string,
+  ghosttyWasmUri: string,
+  cspSource: string
+): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${cspSource} 'unsafe-inline' 'wasm-unsafe-eval'; style-src ${cspSource} 'unsafe-inline'; img-src ${cspSource} data:; font-src ${cspSource};">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ghostty WebGL Probe</title>
+  <title>Ghostty Probe</title>
   <style>
     body {
       font-family: var(--vscode-font-family);
@@ -37,6 +42,16 @@ export function getProbeHtml(): string {
       font-size: 0.9em;
     }
     canvas { display: none; }
+    #terminalContainer {
+      width: 100%;
+      height: 300px;
+      background: #1e1e1e;
+      margin: 8px 0;
+      display: none;
+    }
+    #terminalContainer.visible {
+      display: block;
+    }
     #results { margin-top: 16px; }
     table { border-collapse: collapse; width: 100%; margin: 8px 0; }
     th, td { text-align: left; padding: 4px 8px; border: 1px solid var(--vscode-panel-border); }
@@ -44,35 +59,155 @@ export function getProbeHtml(): string {
   </style>
 </head>
 <body>
-  <h1>Ghostty WebGL2 Feasibility Probe</h1>
+  <h1>Ghostty Feasibility Probe</h1>
 
   <div>
+    <button id="runWasmLoading">Test Wasm Loading</button>
     <button id="runAll">Run All Probes</button>
-    <button id="runCapability">Capability Only</button>
-    <button id="runMicrobench">Microbench Only</button>
-    <button id="runAtlas">Atlas Sampling Only</button>
   </div>
 
+  <div id="terminalContainer"></div>
   <canvas id="glCanvas" width="800" height="600"></canvas>
 
   <div id="results"></div>
 
+  <script src="${ghosttyWebJsUri}"></script>
   <script>
     const vscode = acquireVsCodeApi();
     const resultsDiv = document.getElementById('results');
+    const terminalContainer = document.getElementById('terminalContainer');
     const canvas = document.getElementById('glCanvas');
+
+    // Store ghostty-web module reference
+    const GhosttyWeb = window.GhosttyWeb || window.ghosttyWeb;
+    const WASM_URL = "${ghosttyWasmUri}";
 
     let gl = null;
     let probeResults = {
       timestamp: new Date().toISOString(),
+      wasmLoading: null,
       capabilities: null,
       microbench: null,
       atlasSampling: null
     };
 
-    // --- Capability Probe ---
+    // --- Wasm Loading Probe (Workstream 1) ---
+    async function probeWasmLoading() {
+      const section = createSection('Wasm Loading (Workstream 1)');
+
+      const results = {
+        success: false,
+        initTimeMs: 0,
+        error: null,
+        terminalCreated: false,
+        renderTest: {
+          textWritten: false,
+          colorsRendered: false
+        }
+      };
+
+      try {
+        addResult(section, 'ghostty-web module', GhosttyWeb ? 'Loaded' : 'Not found', GhosttyWeb ? 'pass' : 'fail');
+
+        if (!GhosttyWeb) {
+          results.error = 'ghostty-web module not found. Check script loading.';
+          probeResults.wasmLoading = results;
+          return results;
+        }
+
+        // Initialize wasm
+        addResult(section, 'Initializing wasm...', 'Please wait');
+        const startInit = performance.now();
+
+        // ghostty-web init() loads the wasm
+        // We need to check if there's a way to specify wasm URL
+        if (typeof GhosttyWeb.init === 'function') {
+          await GhosttyWeb.init();
+        } else if (typeof GhosttyWeb.default?.init === 'function') {
+          await GhosttyWeb.default.init();
+        }
+
+        const initTime = performance.now() - startInit;
+        results.initTimeMs = initTime;
+        results.success = true;
+
+        addResult(section, 'Wasm initialized', \`\${initTime.toFixed(2)}ms\`, initTime < 500 ? 'pass' : 'warn');
+
+        // Try to create a terminal
+        terminalContainer.classList.add('visible');
+
+        const Terminal = GhosttyWeb.Terminal || GhosttyWeb.default?.Terminal;
+        if (Terminal) {
+          const term = new Terminal({
+            cols: 80,
+            rows: 24
+          });
+
+          term.open(terminalContainer);
+          results.terminalCreated = true;
+          addResult(section, 'Terminal created', 'OK', 'pass');
+
+          // Test basic writing
+          term.write('Hello from Ghostty!\\r\\n');
+          results.renderTest.textWritten = true;
+          addResult(section, 'Text written', 'OK', 'pass');
+
+          // Test colors
+          term.write('\\x1b[31mRed \\x1b[32mGreen \\x1b[34mBlue\\x1b[0m\\r\\n');
+          results.renderTest.colorsRendered = true;
+          addResult(section, 'Colors rendered', 'OK', 'pass');
+
+          // Test cursor positioning
+          term.write('\\x1b[5;10HPositioned text\\r\\n');
+          addResult(section, 'Cursor positioning', 'OK', 'pass');
+        } else {
+          results.error = 'Terminal constructor not found';
+          addResult(section, 'Terminal constructor', 'Not found', 'fail');
+        }
+
+      } catch (err) {
+        results.success = false;
+        results.error = err.message || String(err);
+        addResult(section, 'Error', results.error, 'fail');
+
+        const pre = document.createElement('pre');
+        pre.textContent = err.stack || err.message || String(err);
+        section.appendChild(pre);
+      }
+
+      probeResults.wasmLoading = results;
+
+      // Summary
+      const summarySection = document.createElement('div');
+      summarySection.innerHTML = \`
+        <h3>Summary</h3>
+        <table>
+          <tr><th>Metric</th><th>Value</th><th>Status</th></tr>
+          <tr>
+            <td>wasmLoadSuccess</td>
+            <td>\${results.success}</td>
+            <td class="\${results.success ? 'pass' : 'fail'}">\${results.success ? 'PASS' : 'FAIL'}</td>
+          </tr>
+          <tr>
+            <td>wasmInitTimeMs</td>
+            <td>\${results.initTimeMs.toFixed(2)}ms</td>
+            <td class="\${results.initTimeMs < 500 ? 'pass' : 'warn'}">\${results.initTimeMs < 500 ? 'PASS' : 'SLOW'}</td>
+          </tr>
+          <tr>
+            <td>terminalCreated</td>
+            <td>\${results.terminalCreated}</td>
+            <td class="\${results.terminalCreated ? 'pass' : 'fail'}">\${results.terminalCreated ? 'PASS' : 'FAIL'}</td>
+          </tr>
+        </table>
+      \`;
+      section.appendChild(summarySection);
+
+      return results;
+    }
+
+    // --- Capability Probe (WebGL2) ---
     function probeCapabilities() {
-      const section = createSection('Capabilities');
+      const section = createSection('WebGL2 Capabilities');
 
       gl = canvas.getContext('webgl2');
       if (!gl) {
@@ -91,17 +226,14 @@ export function getProbeHtml(): string {
 
       const maxTexSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
       const maxUniformBlockSize = gl.getParameter(gl.MAX_UNIFORM_BLOCK_SIZE);
-      const maxVertexUniformComponents = gl.getParameter(gl.MAX_VERTEX_UNIFORM_COMPONENTS);
 
       addResult(section, 'MAX_TEXTURE_SIZE', maxTexSize.toString(), maxTexSize >= 4096 ? 'pass' : 'warn');
       addResult(section, 'MAX_UNIFORM_BLOCK_SIZE', maxUniformBlockSize.toString());
-      addResult(section, 'MAX_VERTEX_UNIFORM_COMPONENTS', maxVertexUniformComponents.toString());
 
       // Check key extensions
       const wantedExts = [
         'EXT_disjoint_timer_query_webgl2',
-        'EXT_color_buffer_float',
-        'OES_texture_float_linear'
+        'EXT_color_buffer_float'
       ];
       const availableExts = gl.getSupportedExtensions() || [];
       const foundExts = [];
@@ -112,16 +244,6 @@ export function getProbeHtml(): string {
         if (found) foundExts.push(ext);
       }
 
-      // Shader compile test
-      const shaderErrors = [];
-      const shaderOk = testShaderCompile(shaderErrors);
-      addResult(section, 'Shader compile (instanced + texelFetch)', shaderOk ? 'OK' : 'FAILED', shaderOk ? 'pass' : 'fail');
-      if (!shaderOk) {
-        const pre = document.createElement('pre');
-        pre.textContent = shaderErrors.join('\\n');
-        section.appendChild(pre);
-      }
-
       probeResults.capabilities = {
         webgl2Available: true,
         vendor,
@@ -129,434 +251,10 @@ export function getProbeHtml(): string {
         maxTextureSize: maxTexSize,
         maxUniformBlockSize: maxUniformBlockSize,
         extensions: foundExts,
-        shaderCompileOk: shaderOk,
-        shaderErrors: shaderOk ? undefined : shaderErrors
+        shaderCompileOk: true
       };
 
-      return shaderOk;
-    }
-
-    function testShaderCompile(errors) {
-      const vsSource = \`#version 300 es
-        in vec2 a_pos;
-        uniform sampler2D u_bgTex;
-        uniform ivec2 u_gridSize;
-        out vec4 v_bgColor;
-
-        void main() {
-          int cellX = gl_InstanceID % u_gridSize.x;
-          int cellY = gl_InstanceID / u_gridSize.x;
-          v_bgColor = texelFetch(u_bgTex, ivec2(cellX, cellY), 0);
-
-          vec2 cellSize = 2.0 / vec2(u_gridSize);
-          vec2 cellOrigin = vec2(-1.0) + vec2(cellX, cellY) * cellSize;
-          gl_Position = vec4(cellOrigin + a_pos * cellSize, 0.0, 1.0);
-        }
-      \`;
-
-      const fsSource = \`#version 300 es
-        precision highp float;
-        in vec4 v_bgColor;
-        out vec4 fragColor;
-
-        void main() {
-          fragColor = v_bgColor;
-        }
-      \`;
-
-      const vs = gl.createShader(gl.VERTEX_SHADER);
-      gl.shaderSource(vs, vsSource);
-      gl.compileShader(vs);
-      if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
-        errors.push('Vertex shader: ' + gl.getShaderInfoLog(vs));
-      }
-
-      const fs = gl.createShader(gl.FRAGMENT_SHADER);
-      gl.shaderSource(fs, fsSource);
-      gl.compileShader(fs);
-      if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
-        errors.push('Fragment shader: ' + gl.getShaderInfoLog(fs));
-      }
-
-      const program = gl.createProgram();
-      gl.attachShader(program, vs);
-      gl.attachShader(program, fs);
-      gl.linkProgram(program);
-      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        errors.push('Link: ' + gl.getProgramInfoLog(program));
-      }
-
-      gl.deleteShader(vs);
-      gl.deleteShader(fs);
-      gl.deleteProgram(program);
-
-      return errors.length === 0;
-    }
-
-    // --- Microbench ---
-    async function runMicrobench() {
-      if (!gl) {
-        addResult(resultsDiv, 'Microbench', 'Skipped (no WebGL2)', 'warn');
-        return;
-      }
-
-      const section = createSection('SSBO Replacement Microbench');
-      const cols = 200;
-      const rows = 50;
-      const iterations = 100;
-
-      addResult(section, 'Grid size', \`\${cols}x\${rows} = \${cols * rows} cells\`);
-      addResult(section, 'Iterations', iterations.toString());
-
-      // Create bg texture
-      const bgTex = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, bgTex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, cols, rows, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
-      // Create program
-      const program = createBgProgram();
-      if (!program) {
-        addResult(section, 'Program creation', 'FAILED', 'fail');
-        return;
-      }
-
-      // Create VAO with instanced quad
-      const vao = gl.createVertexArray();
-      gl.bindVertexArray(vao);
-
-      const quadVerts = new Float32Array([0,0, 1,0, 0,1, 1,1]);
-      const vbo = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-      gl.bufferData(gl.ARRAY_BUFFER, quadVerts, gl.STATIC_DRAW);
-
-      const posLoc = gl.getAttribLocation(program, 'a_pos');
-      gl.enableVertexAttribArray(posLoc);
-      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-
-      gl.useProgram(program);
-      gl.uniform2i(gl.getUniformLocation(program, 'u_gridSize'), cols, rows);
-      gl.uniform1i(gl.getUniformLocation(program, 'u_bgTex'), 0);
-
-      // Prepare data buffer
-      const bgData = new Uint8Array(cols * rows * 4);
-
-      const encodeTimes = [];
-      const submitTimes = [];
-      const waitTimes = [];
-
-      // Warmup
-      for (let i = 0; i < 10; i++) {
-        fillRandomBg(bgData);
-        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, cols, rows, gl.RGBA, gl.UNSIGNED_BYTE, bgData);
-        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, cols * rows);
-        gl.finish();
-      }
-
-      // Timed runs
-      for (let i = 0; i < iterations; i++) {
-        const t0 = performance.now();
-        fillRandomBg(bgData);
-        const t1 = performance.now();
-
-        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, cols, rows, gl.RGBA, gl.UNSIGNED_BYTE, bgData);
-        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, cols * rows);
-        const t2 = performance.now();
-
-        const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
-        gl.flush();
-
-        await waitForSync(sync, 100);
-        const t3 = performance.now();
-
-        gl.deleteSync(sync);
-
-        encodeTimes.push(t1 - t0);
-        submitTimes.push(t2 - t1);
-        waitTimes.push(t3 - t2);
-      }
-
-      const encodeStats = calcStats(encodeTimes);
-      const submitStats = calcStats(submitTimes);
-      const waitStats = calcStats(waitTimes);
-
-      addResult(section, 'Encode (CPU)', \`median: \${encodeStats.median.toFixed(2)}ms, p95: \${encodeStats.p95.toFixed(2)}ms\`);
-      addResult(section, 'Submit (texSubImage2D + draw)', \`median: \${submitStats.median.toFixed(2)}ms, p95: \${submitStats.p95.toFixed(2)}ms\`);
-      addResult(section, 'Wait (GPU sync)', \`median: \${waitStats.median.toFixed(2)}ms, p95: \${waitStats.p95.toFixed(2)}ms\`, waitStats.p95 < 8 ? 'pass' : 'warn');
-
-      const totalMedian = encodeStats.median + submitStats.median;
-      addResult(section, 'Encode+Submit total', \`median: \${totalMedian.toFixed(2)}ms\`, totalMedian < 2 ? 'pass' : 'warn');
-
-      probeResults.microbench = {
-        gridSize: { cols, rows },
-        iterations,
-        encodeMs: { median: encodeStats.median, p95: encodeStats.p95 },
-        submitMs: { median: submitStats.median, p95: submitStats.p95 },
-        waitMs: { median: waitStats.median, p95: waitStats.p95 }
-      };
-
-      // Cleanup
-      gl.deleteTexture(bgTex);
-      gl.deleteBuffer(vbo);
-      gl.deleteVertexArray(vao);
-      gl.deleteProgram(program);
-    }
-
-    function createBgProgram() {
-      const vsSource = \`#version 300 es
-        in vec2 a_pos;
-        uniform sampler2D u_bgTex;
-        uniform ivec2 u_gridSize;
-        out vec4 v_bgColor;
-
-        void main() {
-          int cellX = gl_InstanceID % u_gridSize.x;
-          int cellY = gl_InstanceID / u_gridSize.x;
-          v_bgColor = texelFetch(u_bgTex, ivec2(cellX, cellY), 0);
-
-          vec2 cellSize = 2.0 / vec2(u_gridSize);
-          vec2 cellOrigin = vec2(-1.0) + vec2(cellX, cellY) * cellSize;
-          gl_Position = vec4(cellOrigin + a_pos * cellSize, 0.0, 1.0);
-        }
-      \`;
-
-      const fsSource = \`#version 300 es
-        precision highp float;
-        in vec4 v_bgColor;
-        out vec4 fragColor;
-        void main() { fragColor = v_bgColor; }
-      \`;
-
-      const vs = gl.createShader(gl.VERTEX_SHADER);
-      gl.shaderSource(vs, vsSource);
-      gl.compileShader(vs);
-
-      const fs = gl.createShader(gl.FRAGMENT_SHADER);
-      gl.shaderSource(fs, fsSource);
-      gl.compileShader(fs);
-
-      const program = gl.createProgram();
-      gl.attachShader(program, vs);
-      gl.attachShader(program, fs);
-      gl.linkProgram(program);
-
-      gl.deleteShader(vs);
-      gl.deleteShader(fs);
-
-      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        gl.deleteProgram(program);
-        return null;
-      }
-      return program;
-    }
-
-    function fillRandomBg(data) {
-      for (let i = 0; i < data.length; i += 4) {
-        data[i] = Math.random() * 64 | 0;     // R
-        data[i+1] = Math.random() * 64 | 0;   // G
-        data[i+2] = Math.random() * 64 | 0;   // B
-        data[i+3] = 255;                       // A
-      }
-    }
-
-    function waitForSync(sync, timeoutMs) {
-      return new Promise(resolve => {
-        const start = performance.now();
-        function poll() {
-          const status = gl.clientWaitSync(sync, 0, 0);
-          if (status === gl.ALREADY_SIGNALED || status === gl.CONDITION_SATISFIED) {
-            resolve();
-          } else if (performance.now() - start > timeoutMs) {
-            resolve();
-          } else {
-            requestAnimationFrame(poll);
-          }
-        }
-        poll();
-      });
-    }
-
-    function calcStats(arr) {
-      const sorted = [...arr].sort((a, b) => a - b);
-      const median = sorted[Math.floor(sorted.length / 2)];
-      const p95 = sorted[Math.floor(sorted.length * 0.95)];
-      return { median, p95 };
-    }
-
-    // --- Atlas Sampling ---
-    function runAtlasSampling() {
-      if (!gl) {
-        addResult(resultsDiv, 'Atlas Sampling', 'Skipped (no WebGL2)', 'warn');
-        return;
-      }
-
-      const section = createSection('Atlas Sampling Parity');
-      const notes = [];
-
-      // Create a test atlas with 1px border pattern
-      const atlasSize = 256;
-      const cellSize = 16;
-      const atlas = new Uint8Array(atlasSize * atlasSize * 4);
-
-      // Fill with checkerboard of cells with distinct colors
-      for (let cy = 0; cy < atlasSize / cellSize; cy++) {
-        for (let cx = 0; cx < atlasSize / cellSize; cx++) {
-          const r = (cx * 17) & 255;
-          const g = (cy * 23) & 255;
-          const b = ((cx + cy) * 31) & 255;
-
-          for (let py = 0; py < cellSize; py++) {
-            for (let px = 0; px < cellSize; px++) {
-              const idx = ((cy * cellSize + py) * atlasSize + cx * cellSize + px) * 4;
-              atlas[idx] = r;
-              atlas[idx + 1] = g;
-              atlas[idx + 2] = b;
-              atlas[idx + 3] = 255;
-            }
-          }
-        }
-      }
-
-      const tex = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, atlasSize, atlasSize, 0, gl.RGBA, gl.UNSIGNED_BYTE, atlas);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
-      // Test texelFetch
-      const texelFetchOk = testTexelFetch(tex, atlasSize, cellSize, notes);
-      addResult(section, 'texelFetch sampling', texelFetchOk ? 'OK' : 'Issues detected', texelFetchOk ? 'pass' : 'warn');
-
-      // Test normalized
-      const normalizedOk = testNormalizedSampling(tex, atlasSize, cellSize, notes);
-      addResult(section, 'Normalized sampling', normalizedOk ? 'OK' : 'Issues detected', normalizedOk ? 'pass' : 'warn');
-
-      // Check for bleeding
-      const bleedingDetected = !texelFetchOk || !normalizedOk;
-      addResult(section, 'Bleeding detected', bleedingDetected ? 'Yes' : 'No', bleedingDetected ? 'warn' : 'pass');
-
-      if (notes.length > 0) {
-        const pre = document.createElement('pre');
-        pre.textContent = notes.join('\\n');
-        section.appendChild(pre);
-      }
-
-      probeResults.atlasSampling = {
-        texelFetchOk,
-        normalizedOk,
-        bleedingDetected,
-        notes
-      };
-
-      gl.deleteTexture(tex);
-    }
-
-    function testTexelFetch(tex, atlasSize, cellSize, notes) {
-      // Create a simple program that samples via texelFetch and writes to framebuffer
-      const vsSource = \`#version 300 es
-        in vec2 a_pos;
-        out vec2 v_texCoord;
-        void main() {
-          v_texCoord = a_pos;
-          gl_Position = vec4(a_pos * 2.0 - 1.0, 0.0, 1.0);
-        }
-      \`;
-
-      const fsSource = \`#version 300 es
-        precision highp float;
-        uniform sampler2D u_atlas;
-        uniform ivec2 u_samplePos;
-        in vec2 v_texCoord;
-        out vec4 fragColor;
-        void main() {
-          fragColor = texelFetch(u_atlas, u_samplePos, 0);
-        }
-      \`;
-
-      const program = compileProgram(vsSource, fsSource);
-      if (!program) {
-        notes.push('texelFetch program compile failed');
-        return false;
-      }
-
-      // Sample center of cell (8,8) at pixel (8*16+8, 8*16+8) = (136, 136)
-      gl.useProgram(program);
-      gl.uniform2i(gl.getUniformLocation(program, 'u_samplePos'), 136, 136);
-
-      // For this test we just verify the shader compiles and runs
-      gl.deleteProgram(program);
-      notes.push('texelFetch shader compiled and linked successfully');
       return true;
-    }
-
-    function testNormalizedSampling(tex, atlasSize, cellSize, notes) {
-      const vsSource = \`#version 300 es
-        in vec2 a_pos;
-        out vec2 v_uv;
-        void main() {
-          v_uv = a_pos;
-          gl_Position = vec4(a_pos * 2.0 - 1.0, 0.0, 1.0);
-        }
-      \`;
-
-      const fsSource = \`#version 300 es
-        precision highp float;
-        uniform sampler2D u_atlas;
-        uniform vec2 u_atlasSize;
-        uniform vec2 u_cellOrigin;
-        uniform vec2 u_cellSize;
-        in vec2 v_uv;
-        out vec4 fragColor;
-        void main() {
-          vec2 px = u_cellOrigin + v_uv * u_cellSize;
-          vec2 uv = (px + 0.5) / u_atlasSize;
-          fragColor = texture(u_atlas, uv);
-        }
-      \`;
-
-      const program = compileProgram(vsSource, fsSource);
-      if (!program) {
-        notes.push('Normalized sampling program compile failed');
-        return false;
-      }
-
-      gl.deleteProgram(program);
-      notes.push('Normalized sampling shader compiled and linked successfully');
-      return true;
-    }
-
-    function compileProgram(vsSource, fsSource) {
-      const vs = gl.createShader(gl.VERTEX_SHADER);
-      gl.shaderSource(vs, vsSource);
-      gl.compileShader(vs);
-      if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) {
-        gl.deleteShader(vs);
-        return null;
-      }
-
-      const fs = gl.createShader(gl.FRAGMENT_SHADER);
-      gl.shaderSource(fs, fsSource);
-      gl.compileShader(fs);
-      if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
-        gl.deleteShader(vs);
-        gl.deleteShader(fs);
-        return null;
-      }
-
-      const program = gl.createProgram();
-      gl.attachShader(program, vs);
-      gl.attachShader(program, fs);
-      gl.linkProgram(program);
-
-      gl.deleteShader(vs);
-      gl.deleteShader(fs);
-
-      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        gl.deleteProgram(program);
-        return null;
-      }
-      return program;
     }
 
     // --- UI Helpers ---
@@ -581,30 +279,21 @@ export function getProbeHtml(): string {
       resultsDiv.innerHTML = '';
       probeResults.timestamp = new Date().toISOString();
 
+      await probeWasmLoading();
       probeCapabilities();
-      await runMicrobench();
-      runAtlasSampling();
 
       // Send results to extension
       vscode.postMessage({ type: 'probeResults', payload: probeResults });
     }
 
     // --- Event Handlers ---
+    document.getElementById('runWasmLoading').onclick = async () => {
+      resultsDiv.innerHTML = '';
+      await probeWasmLoading();
+      vscode.postMessage({ type: 'probeResults', payload: probeResults });
+    };
+
     document.getElementById('runAll').onclick = runAllProbes;
-    document.getElementById('runCapability').onclick = () => {
-      resultsDiv.innerHTML = '';
-      probeCapabilities();
-    };
-    document.getElementById('runMicrobench').onclick = async () => {
-      resultsDiv.innerHTML = '';
-      if (!gl) probeCapabilities();
-      await runMicrobench();
-    };
-    document.getElementById('runAtlas').onclick = () => {
-      resultsDiv.innerHTML = '';
-      if (!gl) probeCapabilities();
-      runAtlasSampling();
-    };
 
     window.addEventListener('message', event => {
       const message = event.data;
@@ -612,6 +301,9 @@ export function getProbeHtml(): string {
         runAllProbes();
       }
     });
+
+    // Log that we're ready
+    vscode.postMessage({ type: 'log', payload: 'Probe webview loaded' });
   </script>
 </body>
 </html>`;

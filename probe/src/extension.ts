@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { getProbeHtml } from "./webview/probeHtml";
+import * as path from "path";
 
 let probePanel: vscode.WebviewPanel | undefined;
 
@@ -26,17 +27,41 @@ function showProbePanel(context: vscode.ExtensionContext): void {
     return;
   }
 
+  // Get the path to ghostty-web in node_modules
+  const ghosttyWebPath = path.join(
+    context.extensionPath,
+    "node_modules",
+    "ghostty-web",
+    "dist"
+  );
+
   probePanel = vscode.window.createWebviewPanel(
     "ghosttyProbe",
-    "Ghostty WebGL Probe",
+    "Ghostty Probe",
     vscode.ViewColumn.One,
     {
       enableScripts: true,
       retainContextWhenHidden: true,
+      localResourceRoots: [
+        vscode.Uri.file(ghosttyWebPath),
+        vscode.Uri.file(path.join(context.extensionPath, "node_modules")),
+      ],
     }
   );
 
-  probePanel.webview.html = getProbeHtml();
+  // Create URIs for ghostty-web files
+  const ghosttyWebJsUri = probePanel.webview.asWebviewUri(
+    vscode.Uri.file(path.join(ghosttyWebPath, "ghostty-web.umd.cjs"))
+  );
+  const ghosttyWasmUri = probePanel.webview.asWebviewUri(
+    vscode.Uri.file(path.join(ghosttyWebPath, "ghostty-vt.wasm"))
+  );
+
+  probePanel.webview.html = getProbeHtml(
+    ghosttyWebJsUri.toString(),
+    ghosttyWasmUri.toString(),
+    probePanel.webview.cspSource
+  );
 
   probePanel.webview.onDidReceiveMessage(
     (message: ProbeMessage) => handleProbeMessage(message, context),
@@ -55,9 +80,21 @@ type ProbeMessage =
 
 type ProbeResults = {
   timestamp: string;
-  capabilities: CapabilityResults;
+  wasmLoading?: WasmLoadingResults;
+  capabilities?: CapabilityResults;
   microbench?: MicrobenchResults;
   atlasSampling?: AtlasSamplingResults;
+};
+
+type WasmLoadingResults = {
+  success: boolean;
+  initTimeMs: number;
+  error?: string;
+  terminalCreated: boolean;
+  renderTest?: {
+    textWritten: boolean;
+    colorsRendered: boolean;
+  };
 };
 
 type CapabilityResults = {
