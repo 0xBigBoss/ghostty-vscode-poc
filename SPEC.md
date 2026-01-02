@@ -19,6 +19,13 @@ Links:
 - https://github.com/coder/ghostty-web
 - https://npmjs.com/package/ghostty-web
 - Live demo: https://ghostty.ondis.co
+- Mitchell's libghostty roadmap: https://mitchellh.com/writing/libghostty-is-coming
+
+**libghostty roadmap** (from Mitchell's blog, Sept 2025):
+- `libghostty-vt`: Zero-dependency VT parsing + terminal state (available now as Zig module)
+- WASM target explicitly planned ("Windows, embedded devices, and the web via WASM")
+- Future: GPU rendering lib ("provide us with an OpenGL or Metal surface"), input handling, GTK/Swift frameworks
+- ghostty-web is a community project building on this foundation
 
 **Implication:** VT parsing via wasm is solved. Our PoC focuses on **WebGL2 rendering feasibility**—the novel, untested component.
 
