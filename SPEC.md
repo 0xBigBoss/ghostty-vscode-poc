@@ -67,6 +67,13 @@ Links:
 
 ## Workstreams
 
+1. Wasm Loading
+2. Basic Terminal Rendering
+3. Input Handling
+4. Throughput Benchmark
+5. VS Code Integration
+6. xterm.js API Compatibility
+
 ### Workstream 1 — Wasm Loading
 Validate ghostty-web wasm loads in VS Code webview sandbox.
 
@@ -208,19 +215,107 @@ Validate integration with VS Code webview APIs.
 
 ---
 
+### Workstream 6 — xterm.js API Compatibility
+Validate ghostty-web implements the xterm.js APIs that VS Code terminal relies on.
+
+**Core APIs to verify:**
+```typescript
+// Terminal lifecycle
+new Terminal(options)
+term.open(container)
+term.dispose()
+
+// I/O
+term.write(data, callback?)
+term.writeln(data)
+term.onData(callback)
+term.onBinary(callback)
+
+// Dimensions
+term.cols / term.rows
+term.resize(cols, rows)
+term.onResize(callback)
+
+// Selection
+term.select(column, row, length)
+term.selectAll()
+term.selectLines(start, end)
+term.getSelection()
+term.hasSelection()
+term.clearSelection()
+term.onSelectionChange(callback)
+
+// Scrolling
+term.scrollLines(amount)
+term.scrollPages(amount)
+term.scrollToTop()
+term.scrollToBottom()
+term.scrollToLine(line)
+
+// Buffer access
+term.buffer.active
+term.buffer.normal
+term.buffer.alternate
+
+// Links
+term.registerLinkProvider(provider)
+
+// Decorations
+term.registerDecoration(options)
+```
+
+**Addons used by VS Code (check availability):**
+- `@xterm/addon-fit` - auto-resize to container
+- `@xterm/addon-webgl` - WebGL renderer (optional, Canvas2D fallback)
+- `@xterm/addon-unicode11` - Unicode width handling
+- `@xterm/addon-serialize` - terminal state serialization
+
+**Test:**
+```typescript
+// Check each API exists and is callable
+const term = new Terminal();
+const apis = {
+  write: typeof term.write === 'function',
+  onData: typeof term.onData === 'function',
+  resize: typeof term.resize === 'function',
+  buffer: term.buffer !== undefined,
+  // ... etc
+};
+
+// Check addon compatibility
+const fitAddonWorks = checkFitAddon(term);
+const unicodeAddonWorks = checkUnicodeAddon(term);
+```
+
+**Metrics:**
+- `coreApiCoverage`: percentage of core APIs implemented
+- `addonCompatibility`: which addons work / partially work / missing
+- `missingCriticalApis`: list of APIs needed but not implemented
+
+**Success Criteria:**
+- Core lifecycle APIs work (Terminal, open, dispose, write, onData)
+- Resize and dimension APIs work
+- Buffer access works (for scrollback, screen reading)
+- fit addon works or equivalent functionality exists
+- No critical APIs missing for basic terminal operation
+
+---
+
 ## Go / No-Go (Phase 1)
 
 **No-Go** if any of:
 - Wasm fails to load in VS Code webview (CSP, sandbox issues)
 - Rendering is visibly broken or unusable
-- Throughput < 10 MiB/s (unusable for real workloads)
+- Throughput < 30 MiB/s (below target performance)
 - Input handling fundamentally broken
+- Critical xterm.js API incompatibilities (Workstream 6 fails)
 
 **Go** if:
 - Wasm loads reliably
 - Rendering is correct (text, colors, cursor)
 - Input works (typing, special keys)
 - Throughput >= 30 MiB/s
+- xterm.js API compatibility sufficient for VS Code use case
 - No critical integration blockers
 
 ---
@@ -241,7 +336,8 @@ Validate integration with VS Code webview APIs.
 4. Implement Workstream 3: input handling test
 5. Implement Workstream 4: throughput benchmark
 6. Implement Workstream 5: VS Code integration test
-7. Run all workstreams, capture results, make Go/No-Go call
+7. Implement Workstream 6: xterm.js API compatibility audit
+8. Run all workstreams, capture results, make Go/No-Go call
 
 ---
 
