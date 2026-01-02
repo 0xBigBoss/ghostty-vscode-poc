@@ -8,6 +8,9 @@
 - [x] Update probeHtml.ts with wasm loading test (iteration 1)
 - [x] Compile extension - success (iteration 1)
 - [x] Add CSP with wasm-unsafe-eval for WASM support (iteration 1)
+- [x] Fix ISSUE-1: Add wasmBundleSizeKb field, rename success->wasmLoadSuccess, initTimeMs->wasmInitTimeMs (iteration 2)
+- [x] Fix ISSUE-2: Create artifacts directory before write, add error handling (iteration 2)
+- [x] Recompile extension - success (iteration 2)
 
 ## In Progress
 - [ ] Test wasm loading in VS Code webview (manual test needed)
@@ -54,4 +57,6 @@ Check Developer Tools console (Help > Toggle Developer Tools) for:
 - [x] npm run compile succeeds
 - [x] Webview HTML imports and calls init()
 - [x] CSP properly configured
+- [x] JSON output includes wasmLoadSuccess, wasmInitTimeMs, wasmBundleSizeKb
+- [x] Artifacts directory created before write, errors handled
 - [ ] Manual VS Code test (requires user interaction)

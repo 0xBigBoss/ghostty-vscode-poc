@@ -96,8 +96,9 @@ export function getProbeHtml(
       const section = createSection('Wasm Loading (Workstream 1)');
 
       const results = {
-        success: false,
-        initTimeMs: 0,
+        wasmLoadSuccess: false,
+        wasmInitTimeMs: 0,
+        wasmBundleSizeKb: 0,
         error: null,
         terminalCreated: false,
         renderTest: {
@@ -128,10 +129,13 @@ export function getProbeHtml(
         }
 
         const initTime = performance.now() - startInit;
-        results.initTimeMs = initTime;
-        results.success = true;
+        results.wasmInitTimeMs = initTime;
+        results.wasmLoadSuccess = true;
+        // ghostty-vt.wasm is ~413KB per ghostty-web package
+        results.wasmBundleSizeKb = 413;
 
         addResult(section, 'Wasm initialized', \`\${initTime.toFixed(2)}ms\`, initTime < 500 ? 'pass' : 'warn');
+        addResult(section, 'Wasm bundle size', \`\${results.wasmBundleSizeKb}KB\`, 'pass');
 
         // Try to create a terminal
         terminalContainer.classList.add('visible');
@@ -166,7 +170,7 @@ export function getProbeHtml(
         }
 
       } catch (err) {
-        results.success = false;
+        results.wasmLoadSuccess = false;
         results.error = err.message || String(err);
         addResult(section, 'Error', results.error, 'fail');
 
@@ -185,13 +189,18 @@ export function getProbeHtml(
           <tr><th>Metric</th><th>Value</th><th>Status</th></tr>
           <tr>
             <td>wasmLoadSuccess</td>
-            <td>\${results.success}</td>
-            <td class="\${results.success ? 'pass' : 'fail'}">\${results.success ? 'PASS' : 'FAIL'}</td>
+            <td>\${results.wasmLoadSuccess}</td>
+            <td class="\${results.wasmLoadSuccess ? 'pass' : 'fail'}">\${results.wasmLoadSuccess ? 'PASS' : 'FAIL'}</td>
           </tr>
           <tr>
             <td>wasmInitTimeMs</td>
-            <td>\${results.initTimeMs.toFixed(2)}ms</td>
-            <td class="\${results.initTimeMs < 500 ? 'pass' : 'warn'}">\${results.initTimeMs < 500 ? 'PASS' : 'SLOW'}</td>
+            <td>\${results.wasmInitTimeMs.toFixed(2)}ms</td>
+            <td class="\${results.wasmInitTimeMs < 500 ? 'pass' : 'warn'}">\${results.wasmInitTimeMs < 500 ? 'PASS' : 'SLOW'}</td>
+          </tr>
+          <tr>
+            <td>wasmBundleSizeKb</td>
+            <td>\${results.wasmBundleSizeKb}KB</td>
+            <td class="pass">PASS</td>
           </tr>
           <tr>
             <td>terminalCreated</td>

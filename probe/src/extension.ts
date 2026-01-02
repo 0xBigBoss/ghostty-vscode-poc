@@ -87,9 +87,10 @@ type ProbeResults = {
 };
 
 type WasmLoadingResults = {
-  success: boolean;
-  initTimeMs: number;
-  error?: string;
+  wasmLoadSuccess: boolean;
+  wasmInitTimeMs: number;
+  wasmBundleSizeKb: number;
+  error?: string | null;
   terminalCreated: boolean;
   renderTest?: {
     textWritten: boolean;
@@ -138,17 +139,24 @@ async function handleProbeMessage(
       const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
 
       if (workspaceRoot) {
-        const artifactsUri = vscode.Uri.joinPath(
-          workspaceRoot,
-          "artifacts",
-          fileName
-        );
+        const artifactsDirUri = vscode.Uri.joinPath(workspaceRoot, "artifacts");
+        const artifactsUri = vscode.Uri.joinPath(artifactsDirUri, fileName);
         const content = Buffer.from(
           JSON.stringify(message.payload, null, 2),
           "utf-8"
         );
-        await vscode.workspace.fs.writeFile(artifactsUri, content);
-        vscode.window.showInformationMessage(`Probe results saved: ${fileName}`);
+        try {
+          // Ensure artifacts directory exists
+          await vscode.workspace.fs.createDirectory(artifactsDirUri);
+          await vscode.workspace.fs.writeFile(artifactsUri, content);
+          vscode.window.showInformationMessage(`Probe results saved: ${fileName}`);
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Failed to save probe results: ${errorMessage}`);
+          console.error("[Probe] Failed to save results:", err);
+        }
+      } else {
+        vscode.window.showWarningMessage("No workspace folder open. Results shown in Output panel only.");
       }
       break;
     }

@@ -20,3 +20,4 @@ artifacts/*.log
 
 # Local state
 .claude/codex-review.local.md
+.claude/ralph-loop.local.md
