@@ -44,4 +44,14 @@ Check Developer Tools console (Help > Toggle Developer Tools) for:
 - ghostty-web UMD bundle loaded via script tag in webview
 - wasm file served via VS Code webview URI system
 - Extension compiles successfully
+- CSP includes `wasm-unsafe-eval` for WASM support
+- Node.js test fails with "self is not defined" - expected, as UMD bundle requires browser context
 - Need manual VS Code testing to verify wasm actually loads
+
+## Verification Status
+- [x] ghostty-web@0.4.0 in package.json
+- [x] npm install succeeds
+- [x] npm run compile succeeds
+- [x] Webview HTML imports and calls init()
+- [x] CSP properly configured
+- [ ] Manual VS Code test (requires user interaction)
