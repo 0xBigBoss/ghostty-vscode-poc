@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-01-02T20:54:24.723Z",
+  "wasmLoading": {
+    "wasmLoadSuccess": true,
+    "wasmInitTimeMs": 5,
+    "wasmBundleSizeKb": 413,
+    "error": null,
+    "terminalCreated": true,
+    "renderTest": {
+      "textWritten": true,
+      "colorsRendered": true
+    }
+  },
+  "capabilities": null,
+  "microbench": null,
+  "atlasSampling": null
+}

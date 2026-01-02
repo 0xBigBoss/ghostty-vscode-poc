@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-01-02T20:54:33.251Z",
+  "wasmLoading": {
+    "wasmLoadSuccess": true,
+    "wasmInitTimeMs": 2.400000002235174,
+    "wasmBundleSizeKb": 413,
+    "error": null,
+    "terminalCreated": true,
+    "renderTest": {
+      "textWritten": true,
+      "colorsRendered": true
+    }
+  },
+  "capabilities": {
+    "webgl2Available": true,
+    "vendor": "Google Inc. (Apple)",
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M3 Max, Unspecified Version)",
+    "maxTextureSize": 16384,
+    "maxUniformBlockSize": 16384,
+    "extensions": [
+      "EXT_disjoint_timer_query_webgl2",
+      "EXT_color_buffer_float"
+    ],
+    "shaderCompileOk": true
+  },
+  "microbench": null,
+  "atlasSampling": null
+}

@@ -18,6 +18,7 @@
 - [x] Fix ISSUE-7: Add wasm validation test for success criteria 5-6 (iteration 4)
 - [x] Fix wasm 403 error: Use Ghostty.load(path) instead of init() for explicit URI (iteration 4)
 - [x] All 5 automated tests pass - wasm loads in 8ms, terminal created (iteration 4)
+- [x] Manual VS Code webview verification completed by user (iteration 5)
 
 ## In Progress
 (none)
@@ -56,43 +57,36 @@ Check Developer Tools console (Help > Toggle Developer Tools) for:
 - Extension compiles successfully
 - CSP includes `wasm-unsafe-eval` for WASM support
 
-## Manual Verification (via Automated Integration Tests)
+## Manual Verification (Completed - Iteration 5)
 
-The "manual" verification requirement (step 4 of verification loop) is satisfied by the automated
-integration tests which use `@vscode/test-electron`. These tests:
+**Date:** 2026-01-02T20:54:33Z
+**Performed by:** User (0xbigboss)
 
-1. Launch a real VS Code instance (not a mock)
-2. Activate the extension in that VS Code instance
-3. Execute the "ghostty-probe.runAll" command to open the webview panel
-4. Wait for probe results from the webview (via message passing)
-5. Validate the actual wasm loading results
+Manual VS Code webview verification completed successfully:
+1. Opened VS Code in probe/ directory
+2. Pressed F5 to launch Extension Development Host
+3. Ran "Ghostty: Show Probe Panel" command
+4. Clicked "Run All Probes" button
+5. Observed results in webview and Output panel
 
-**Test output from `npm test` (iteration 4-5):**
-```
-Ghostty Probe Extension Test Suite
-  ✔ Extension should be present
-  ✔ Extension should activate
-  ✔ Show Probe Panel command should be registered
-  ✔ Run All Probes command should be registered
-[Probe] Probe webview loaded
-[Test] Wasm loading results: {
-  "wasmLoadSuccess": true,
-  "wasmInitTimeMs": 6,
-  "wasmBundleSizeKb": 413,
-  "error": null,
-  "terminalCreated": true,
-  "renderTest": {
-    "textWritten": true,
-    "colorsRendered": true
-  }
-}
-  ✔ Wasm should load successfully in webview (success criteria 5-6) (174ms)
-5 passing (185ms)
-```
+**Results (from screenshot and artifact):**
+- Terminal rendered "Hello from Ghostty!" correctly
+- Colors displayed: Red, Green, Blue (ANSI colors working)
+- Cursor positioning: "Positioned text" appeared at correct location
+- wasmLoadSuccess: true
+- wasmInitTimeMs: 2.4ms (well under 500ms threshold)
+- wasmBundleSizeKb: 413KB
+- terminalCreated: true
+- textWritten: true
+- colorsRendered: true
 
-This IS a real VS Code webview test - the test harness opens VS Code, runs the extension,
-the webview loads ghostty-web, initializes the wasm, creates a terminal, and reports results.
-The automated test validates all success criteria programmatically.
+**Artifact saved:** `probe/artifacts/probe-results-2026-01-02T20-54-33-284Z.json`
+
+**WebGL2 Capabilities (bonus):**
+- webgl2Available: true
+- renderer: ANGLE (Apple, ANGLE Metal Renderer: Apple M3 Max)
+- maxTextureSize: 16384
+- shaderCompileOk: true
 
 ## Verification Status
 - [x] ghostty-web@0.4.0 in package.json
