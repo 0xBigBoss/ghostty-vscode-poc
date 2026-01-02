@@ -5,7 +5,7 @@ Validate whether a **WebGL2 renderer** + ghostty-web (wasm) path can replace xte
 
 ## Prior Art: ghostty-web (coder/ghostty-web)
 
-**Status as of Jan 2026:** Active, v0.4.0, 1.6k+ stars, npm published (verified via [GitHub](https://github.com/coder/ghostty-web) and [npm](https://npmjs.com/package/ghostty-web)).
+**Status:** Active, v0.4.0, 1.6k+ stars, npm published. See [GitHub](https://github.com/coder/ghostty-web) and [npm](https://npmjs.com/package/ghostty-web) for current status.
 
 Key facts:
 - **xterm.js API-compatible** wrapper around libghostty wasm (~400KB bundle)
@@ -81,13 +81,23 @@ Relevant ghostty files:
 ## Single Harness Structure
 One VS Code extension + webview that runs five switchable tests in order and emits JSON results.
 
-1. **Webview Capability Probe**
-2. **SSBO Replacement Microbench (bg-only)**
-3. **Atlas Sampling Parity Test (text-only sampling mechanics)**
-4. **Wasm VT Baseline (feed/parse throughput)**
-5. **Cell-Grid Extraction Test (ghostty-web integration)**
+1. **Webview Capability Probe** (Workstream 1)
+2. **SSBO Replacement Microbench (bg-only)** (Workstream 2)
+3. **Atlas Sampling Parity Test (text-only sampling mechanics)** (Workstream 3)
+4. **Wasm VT Baseline (feed/parse throughput)** (Workstream 4)
+5. **Cell-Grid Extraction Test (ghostty-web integration)** (Workstream 5)
 
-## Workstream 1 — SSBO Replacement
+## Workstream 1 — VS Code Webview Probe
+### Probe Items
+- WebGL2 availability.
+- Limits: `MAX_TEXTURE_SIZE`, `MAX_UNIFORM_BLOCK_SIZE`, etc.
+- Extensions: `EXT_disjoint_timer_query_webgl2`, `EXT_color_buffer_float`.
+- Shader compile sanity: `gl_InstanceID` + `texelFetch`.
+
+### Output
+JSON payload logged to VS Code Output channel with device + capability metadata.
+
+## Workstream 2 — SSBO Replacement
 ### Strategy
 Replace std430 storage buffers with **data textures** sampled via `texelFetch`.
 
@@ -115,7 +125,7 @@ Replace std430 storage buffers with **data textures** sampled via `texelFetch`.
 - `waitMs` median < 4ms (p95 < 8ms).
 - If high waits: add dirty-row upload mode and remeasure.
 
-## Workstream 2 — Atlas Sampling Parity
+## Workstream 3 — Atlas Sampling Parity
 ### Strategy A (Pixel-exact)
 - `sampler2D` + `texelFetch` in fragment shader.
 - `NEAREST` filtering.
@@ -133,7 +143,7 @@ Replace std430 storage buffers with **data textures** sampled via `texelFetch`.
 - No persistent seams/bleeding at common zoom levels.
 - No baseline shifts relative to cell grid.
 
-## Workstream 3 — Wasm VT Baseline (via ghostty-web)
+## Workstream 4 — Wasm VT Baseline (via ghostty-web)
 ### Strategy
 Use **ghostty-web** (`npm install ghostty-web`) instead of building a custom wasm shim. This validates:
 1. ghostty-web wasm loads and runs in VS Code webview
@@ -157,25 +167,25 @@ await init();  // loads ~400KB wasm
   3) Cursor/erase-heavy
 
 ### Metrics
-- Throughput MiB/s (via `term.write()` timing).
+- Throughput MiB/s (measure wall time from first `write()` to final write callback completion).
 - Wasm instantiation time.
 - Memory usage (peak byte length).
+
+Note: `term.write()` is async; use the write callback to measure actual parse completion:
+```typescript
+const start = performance.now();
+for (const chunk of chunks) {
+  await new Promise<void>(resolve => term.write(chunk, resolve));
+}
+const elapsed = performance.now() - start;
+const throughput = totalBytes / elapsed * 1000 / (1024 * 1024); // MiB/s
+```
 
 ### Success Criteria
 - Plain text > 30 MiB/s.
 - SGR-heavy within ~2x of plain text.
 - Wasm loads reliably in VS Code webview.
 - No per-cell JS callbacks in hot path.
-
-## Workstream 4 — VS Code Webview Probe
-### Probe Items
-- WebGL2 availability.
-- Limits: `MAX_TEXTURE_SIZE`, `MAX_UNIFORM_BLOCK_SIZE`, etc.
-- Extensions: `EXT_disjoint_timer_query_webgl2`, `EXT_color_buffer_float`.
-- Shader compile sanity: `gl_InstanceID` + `texelFetch`.
-
-### Output
-JSON payload logged to VS Code Output channel with device + capability metadata.
 
 ## Workstream 5 — Cell-Grid Extraction from ghostty-web
 ### Goal
@@ -214,7 +224,7 @@ term.write('\x1b[31mRed\x1b[0m Normal');
 **No-Go** if any of:
 - WebGL2 context cannot be created reliably in VS Code webview.
 - Instanced draw + `texelFetch` pipeline fails to compile/run.
-- Full-grid upload+draw exceeds Workstream 1 thresholds (p95 wait > 8ms).
+- Full-grid upload+draw exceeds Workstream 2 thresholds (p95 wait > 8ms).
 - ghostty-web wasm fails to load or run in VS Code webview.
 - Cell-grid extraction from ghostty-web is not viable (Workstream 5 fails).
 
