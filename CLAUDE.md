@@ -1,0 +1,13 @@
+# Ghostty + VS Code Feasibility PoC Workspace
+
+This directory is a shared workspace for the Ghostty + VS Code WebGL feasibility PoC.
+
+## Layout
+- ghostty/    - Ghostty source (build wasm, inspect renderer/shaders)
+- vscode/     - Optional VS Code source (only if patching VS Code internals)
+- probe/      - VS Code extension + webview harness for probes
+- artifacts/  - JSON outputs, notes, screenshots
+
+## Notes
+- The PoC runs as a VS Code extension + webview. Building VS Code is optional.
+- Keep outputs in artifacts/ with date-stamped filenames.

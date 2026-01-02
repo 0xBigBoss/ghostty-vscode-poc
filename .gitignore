@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+out/
+*.vsix
+
+# IDE
+.vscode/
+*.code-workspace
+
+# OS
+.DS_Store
+
+# Artifacts (keep structure, ignore contents)
+artifacts/*.json
+artifacts/*.png
+artifacts/*.log
+
+# Local state
+.claude/codex-review.local.md

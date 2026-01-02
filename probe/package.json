@@ -1,0 +1,42 @@
+{
+  "name": "ghostty-webgl-probe",
+  "displayName": "Ghostty WebGL Probe",
+  "description": "WebGL2 feasibility probe for Ghostty-in-VSCode PoC",
+  "version": "0.0.1",
+  "publisher": "0xbigboss",
+  "private": true,
+  "engines": {
+    "vscode": "^1.106.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ghostty-probe.runAll",
+        "title": "Ghostty: Run All WebGL Probes"
+      },
+      {
+        "command": "ghostty-probe.showPanel",
+        "title": "Ghostty: Show Probe Panel"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.106.0",
+    "eslint": "^9.39.0",
+    "typescript": "~5.7.0",
+    "typescript-eslint": "^8.51.0"
+  }
+}
