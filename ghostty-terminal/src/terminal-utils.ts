@@ -20,8 +20,14 @@ export function resolveConfig(partial?: Partial<TerminalConfig>): TerminalConfig
   return {
     ...DEFAULT_CONFIG,
     ...partial,
-    // Merge env: start with process.env, overlay user overrides
-    env: { ...process.env, ...(partial?.env ?? {}) } as Record<string, string>,
+    // Merge env: start with process.env, add Ghostty identification, overlay user overrides
+    env: {
+      ...process.env,
+      TERM_PROGRAM: 'ghostty',
+      TERM_PROGRAM_VERSION: '0.4.0',  // ghostty-web version
+      COLORTERM: 'truecolor',
+      ...(partial?.env ?? {}),
+    } as Record<string, string>,
   };
 }
 

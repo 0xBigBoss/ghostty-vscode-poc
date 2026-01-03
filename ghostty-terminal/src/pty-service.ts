@@ -1,5 +1,6 @@
 import * as pty from 'node-pty';
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import type { TerminalId, TerminalConfig } from './types/terminal';
 
 /** Result of spawn attempt */
@@ -27,18 +28,48 @@ export class PtyService implements vscode.Disposable {
     if (process.platform === 'win32') {
       return process.env.COMSPEC || 'cmd.exe';
     }
-    return process.env.SHELL || '/bin/bash';
+
+    // Try VS Code's terminal profile setting first
+    const terminalConfig = vscode.workspace.getConfiguration('terminal.integrated');
+    const profileName = terminalConfig.get<string>('defaultProfile.osx');
+    if (profileName) {
+      const profiles = terminalConfig.get<Record<string, { path?: string }>>('profiles.osx');
+      if (profiles?.[profileName]?.path) {
+        return profiles[profileName].path;
+      }
+    }
+
+    // Check if SHELL env var points to an existing file
+    const envShell = process.env.SHELL;
+    if (envShell && fs.existsSync(envShell)) {
+      return envShell;
+    }
+
+    // Fallback to common shell locations
+    const fallbackShells = ['/bin/zsh', '/bin/bash', '/bin/sh'];
+    for (const shell of fallbackShells) {
+      if (fs.existsSync(shell)) {
+        return shell;
+      }
+    }
+
+    return '/bin/sh';
   }
 
   /** Spawn PTY, returns error if shell/cwd invalid or native module fails */
   spawn(id: TerminalId, config: TerminalConfig, handlers: PtyHandlers): SpawnResult {
     try {
       const shell = config.shell || this.getDefaultShell();
+      const cwd = config.cwd || process.env.HOME || process.cwd();
+
+      // Log for debugging
+      console.log(`[PtyService] Spawning shell: ${shell}, cwd: ${cwd}`);
+
       const proc = pty.spawn(shell, [], {
         name: 'xterm-256color',
         cols: config.cols || 80,
         rows: config.rows || 24,
-        cwd: config.cwd || process.env.HOME || process.cwd(),
+        cwd,
         env: config.env,
       });
 
