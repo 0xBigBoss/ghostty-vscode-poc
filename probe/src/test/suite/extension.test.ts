@@ -183,11 +183,38 @@ suite("Ghostty Probe Extension Test Suite", () => {
 
     const inputResults = results.inputHandling;
 
-    // Verify onData callback works
+    // Verify onData callback works - must receive actual data
     assert.strictEqual(
       inputResults.onDataCallbackWorks,
       true,
-      "onData callback should be registerable"
+      "onData callback should receive data when input() is called"
+    );
+
+    // Verify standard typing works - must receive the typed character
+    assert.strictEqual(
+      inputResults.standardTypingWorks,
+      true,
+      "Standard typing should work - input('x') must trigger onData with 'x'"
+    );
+
+    // Verify arrow keys work - must receive escape sequence
+    assert.strictEqual(
+      inputResults.arrowKeysWork,
+      true,
+      "Arrow keys should work - must receive ESC[A sequence via onData"
+    );
+
+    // Verify Ctrl+C works - must receive 0x03
+    assert.strictEqual(
+      inputResults.ctrlCWorks,
+      true,
+      "Ctrl+C should work - must receive 0x03 via onData"
+    );
+
+    // Verify we actually captured inputs
+    assert.ok(
+      inputResults.capturedInputs.length >= 3,
+      `Should capture at least 3 inputs (char, arrow, ctrl+c), got ${inputResults.capturedInputs.length}`
     );
 
     console.log("[Test] Input handling results:", JSON.stringify(inputResults, null, 2));
