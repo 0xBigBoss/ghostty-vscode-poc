@@ -13,9 +13,35 @@ type WasmLoadingResults = {
   };
 };
 
+type RenderingResults = {
+  textRendersCorrectly: boolean;
+  colorsWork: boolean;
+  cursorPositioningWorks: boolean;
+  bufferAccessWorks: boolean;
+};
+
+type InputHandlingResults = {
+  onDataCallbackWorks: boolean;
+  standardTypingWorks: boolean;
+  arrowKeysWork: boolean;
+  ctrlCWorks: boolean;
+  capturedInputs: Array<{ data: string; codes: number[] }>;
+};
+
+type ApiCompatibilityResults = {
+  coreAPIsPresent: string[];
+  missingAPIs: string[];
+  bufferAccessWorks: boolean;
+  fitAddonWorks: boolean;
+  selectionAPIsWork: boolean;
+};
+
 type ProbeResults = {
   timestamp: string;
   wasmLoading?: WasmLoadingResults;
+  rendering?: RenderingResults;
+  inputHandling?: InputHandlingResults;
+  apiCompatibility?: ApiCompatibilityResults;
 };
 
 suite("Ghostty Probe Extension Test Suite", () => {
@@ -99,5 +125,107 @@ suite("Ghostty Probe Extension Test Suite", () => {
 
     // Log results for visibility
     console.log("[Test] Wasm loading results:", JSON.stringify(wasmResults, null, 2));
+  });
+
+  test("Rendering should work correctly (Workstream 2)", async function () {
+    this.timeout(60000);
+
+    // Run the probes
+    await vscode.commands.executeCommand("ghostty-probe.runAll");
+
+    // Wait for probe results
+    const results = (await vscode.commands.executeCommand(
+      "ghostty-probe.waitForResults",
+      30000
+    )) as ProbeResults;
+
+    assert.ok(results.rendering, "Should have rendering results");
+
+    const renderResults = results.rendering;
+
+    // Verify text rendering
+    assert.strictEqual(
+      renderResults.textRendersCorrectly,
+      true,
+      "Text should render correctly"
+    );
+
+    // Verify colors work
+    assert.strictEqual(
+      renderResults.colorsWork,
+      true,
+      "ANSI colors should work"
+    );
+
+    // Verify cursor positioning
+    assert.strictEqual(
+      renderResults.cursorPositioningWorks,
+      true,
+      "Cursor positioning should work"
+    );
+
+    console.log("[Test] Rendering results:", JSON.stringify(renderResults, null, 2));
+  });
+
+  test("Input handling should work (Workstream 3)", async function () {
+    this.timeout(60000);
+
+    // Run the probes
+    await vscode.commands.executeCommand("ghostty-probe.runAll");
+
+    // Wait for probe results
+    const results = (await vscode.commands.executeCommand(
+      "ghostty-probe.waitForResults",
+      30000
+    )) as ProbeResults;
+
+    assert.ok(results.inputHandling, "Should have input handling results");
+
+    const inputResults = results.inputHandling;
+
+    // Verify onData callback works
+    assert.strictEqual(
+      inputResults.onDataCallbackWorks,
+      true,
+      "onData callback should be registerable"
+    );
+
+    console.log("[Test] Input handling results:", JSON.stringify(inputResults, null, 2));
+  });
+
+  test("xterm.js API compatibility (Workstream 6)", async function () {
+    this.timeout(60000);
+
+    // Run the probes
+    await vscode.commands.executeCommand("ghostty-probe.runAll");
+
+    // Wait for probe results
+    const results = (await vscode.commands.executeCommand(
+      "ghostty-probe.waitForResults",
+      30000
+    )) as ProbeResults;
+
+    assert.ok(results.apiCompatibility, "Should have API compatibility results");
+
+    const apiResults = results.apiCompatibility;
+
+    // Verify high API coverage (at least 70%)
+    const total = apiResults.coreAPIsPresent.length + apiResults.missingAPIs.length;
+    const coverage = Math.round((apiResults.coreAPIsPresent.length / total) * 100);
+
+    assert.ok(
+      coverage >= 70,
+      `API coverage should be at least 70%, got ${coverage}%`
+    );
+
+    // Log summary
+    console.log("[Test] API compatibility results:");
+    console.log(`  Coverage: ${apiResults.coreAPIsPresent.length}/${total} (${coverage}%)`);
+    console.log(`  Buffer access: ${apiResults.bufferAccessWorks}`);
+    console.log(`  FitAddon: ${apiResults.fitAddonWorks}`);
+    console.log(`  Selection APIs: ${apiResults.selectionAPIsWork}`);
+    if (apiResults.missingAPIs.length > 0) {
+      console.log(`  Missing APIs: ${apiResults.missingAPIs.join(", ")}`);
+    }
   });
 });
