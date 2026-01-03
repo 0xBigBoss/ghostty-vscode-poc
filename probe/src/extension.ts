@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { getProbeHtml } from "./webview/probeHtml";
 import * as path from "path";
+import type { ProbeResults, ProbeMessage } from "./lib/types";
 
 let probePanel: vscode.WebviewPanel | undefined;
 let lastProbeResults: ProbeResults | undefined;
@@ -109,102 +110,6 @@ function showProbePanel(context: vscode.ExtensionContext): void {
     probePanel = undefined;
   });
 }
-
-type ProbeMessage =
-  | { type: "probeResults"; payload: ProbeResults }
-  | { type: "log"; payload: string }
-  | { type: "integrationTest"; payload: { test: string; timestamp: number } };
-
-type ProbeResults = {
-  timestamp: string;
-  wasmLoading?: WasmLoadingResults;
-  rendering?: RenderingResults;
-  inputHandling?: InputHandlingResults;
-  apiCompatibility?: ApiCompatibilityResults;
-  throughput?: ThroughputResults;
-  vsCodeIntegration?: VsCodeIntegrationResults;
-  capabilities?: CapabilityResults;
-  microbench?: MicrobenchResults;
-  atlasSampling?: AtlasSamplingResults;
-};
-
-type RenderingResults = {
-  textRendersCorrectly: boolean;
-  colorsWork: boolean;
-  cursorPositioningWorks: boolean;
-  bufferAccessWorks: boolean;
-};
-
-type InputHandlingResults = {
-  onDataCallbackWorks: boolean;
-  standardTypingWorks: boolean;
-  arrowKeysWork: boolean;
-  ctrlCWorks: boolean;
-  capturedInputs: Array<{ data: string; codes: number[] }>;
-};
-
-type ApiCompatibilityResults = {
-  coreAPIsPresent: string[];
-  missingAPIs: string[];
-  bufferAccessWorks: boolean;
-  fitAddonWorks: boolean;
-  selectionAPIsWork: boolean;
-};
-
-type ThroughputResults = {
-  plainTextThroughputMiBs: number;
-  sgrHeavyThroughputMiBs: number;
-  cursorHeavyThroughputMiBs: number;
-  sgrRatio: number;
-  peakMemoryMb: number;
-  memoryStableAfterRuns: boolean;
-  passesThreshold: boolean;
-};
-
-type VsCodeIntegrationResults = {
-  messagingWorks: boolean;
-  resizeWorks: boolean;
-  themeIntegrationWorks: boolean;
-  focusManagementWorks: boolean;
-};
-
-type WasmLoadingResults = {
-  wasmLoadSuccess: boolean;
-  wasmInitTimeMs: number;
-  wasmBundleSizeKb: number;
-  error?: string | null;
-  terminalCreated: boolean;
-  renderTest?: {
-    textWritten: boolean;
-    colorsRendered: boolean;
-  };
-};
-
-type CapabilityResults = {
-  webgl2Available: boolean;
-  vendor?: string;
-  renderer?: string;
-  maxTextureSize?: number;
-  maxUniformBlockSize?: number;
-  extensions: string[];
-  shaderCompileOk: boolean;
-  shaderErrors?: string[];
-};
-
-type MicrobenchResults = {
-  gridSize: { cols: number; rows: number };
-  iterations: number;
-  encodeMs: { median: number; p95: number };
-  submitMs: { median: number; p95: number };
-  waitMs: { median: number; p95: number };
-};
-
-type AtlasSamplingResults = {
-  texelFetchOk: boolean;
-  normalizedOk: boolean;
-  bleedingDetected: boolean;
-  notes: string[];
-};
 
 async function handleProbeMessage(
   message: ProbeMessage,

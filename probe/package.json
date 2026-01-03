@@ -26,9 +26,11 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run build:prod",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "build": "node esbuild.config.mjs",
+    "build:prod": "NODE_ENV=production node esbuild.config.mjs",
+    "watch": "node esbuild.config.mjs --watch",
     "lint": "eslint src",
     "test": "npm run compile && node ./out/test/runTest.js"
   },
@@ -41,6 +43,7 @@
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.106.0",
     "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.27.2",
     "eslint": "^9.39.0",
     "glob": "^13.0.0",
     "mocha": "^11.7.5",

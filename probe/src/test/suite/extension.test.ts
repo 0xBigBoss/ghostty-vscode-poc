@@ -1,67 +1,6 @@
 import * as assert from "assert";
 import * as vscode from "vscode";
-
-type WasmLoadingResults = {
-  wasmLoadSuccess: boolean;
-  wasmInitTimeMs: number;
-  wasmBundleSizeKb: number;
-  error?: string | null;
-  terminalCreated: boolean;
-  renderTest?: {
-    textWritten: boolean;
-    colorsRendered: boolean;
-  };
-};
-
-type RenderingResults = {
-  textRendersCorrectly: boolean;
-  colorsWork: boolean;
-  cursorPositioningWorks: boolean;
-  bufferAccessWorks: boolean;
-};
-
-type InputHandlingResults = {
-  onDataCallbackWorks: boolean;
-  standardTypingWorks: boolean;
-  arrowKeysWork: boolean;
-  ctrlCWorks: boolean;
-  capturedInputs: Array<{ data: string; codes: number[] }>;
-};
-
-type ApiCompatibilityResults = {
-  coreAPIsPresent: string[];
-  missingAPIs: string[];
-  bufferAccessWorks: boolean;
-  fitAddonWorks: boolean;
-  selectionAPIsWork: boolean;
-};
-
-type ThroughputResults = {
-  plainTextThroughputMiBs: number;
-  sgrHeavyThroughputMiBs: number;
-  cursorHeavyThroughputMiBs: number;
-  sgrRatio: number;
-  peakMemoryMb: number;
-  memoryStableAfterRuns: boolean;
-  passesThreshold: boolean;
-};
-
-type VsCodeIntegrationResults = {
-  messagingWorks: boolean;
-  resizeWorks: boolean;
-  themeIntegrationWorks: boolean;
-  focusManagementWorks: boolean;
-};
-
-type ProbeResults = {
-  timestamp: string;
-  wasmLoading?: WasmLoadingResults;
-  rendering?: RenderingResults;
-  inputHandling?: InputHandlingResults;
-  apiCompatibility?: ApiCompatibilityResults;
-  throughput?: ThroughputResults;
-  vsCodeIntegration?: VsCodeIntegrationResults;
-};
+import type { ProbeResults } from "../../lib/types";
 
 suite("Ghostty Probe Extension Test Suite", () => {
   test("Extension should be present", () => {
