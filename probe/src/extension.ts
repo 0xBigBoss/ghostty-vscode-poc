@@ -112,14 +112,60 @@ function showProbePanel(context: vscode.ExtensionContext): void {
 
 type ProbeMessage =
   | { type: "probeResults"; payload: ProbeResults }
-  | { type: "log"; payload: string };
+  | { type: "log"; payload: string }
+  | { type: "integrationTest"; payload: { test: string; timestamp: number } };
 
 type ProbeResults = {
   timestamp: string;
   wasmLoading?: WasmLoadingResults;
+  rendering?: RenderingResults;
+  inputHandling?: InputHandlingResults;
+  apiCompatibility?: ApiCompatibilityResults;
+  throughput?: ThroughputResults;
+  vsCodeIntegration?: VsCodeIntegrationResults;
   capabilities?: CapabilityResults;
   microbench?: MicrobenchResults;
   atlasSampling?: AtlasSamplingResults;
+};
+
+type RenderingResults = {
+  textRendersCorrectly: boolean;
+  colorsWork: boolean;
+  cursorPositioningWorks: boolean;
+  bufferAccessWorks: boolean;
+};
+
+type InputHandlingResults = {
+  onDataCallbackWorks: boolean;
+  standardTypingWorks: boolean;
+  arrowKeysWork: boolean;
+  ctrlCWorks: boolean;
+  capturedInputs: Array<{ data: string; codes: number[] }>;
+};
+
+type ApiCompatibilityResults = {
+  coreAPIsPresent: string[];
+  missingAPIs: string[];
+  bufferAccessWorks: boolean;
+  fitAddonWorks: boolean;
+  selectionAPIsWork: boolean;
+};
+
+type ThroughputResults = {
+  plainTextThroughputMiBs: number;
+  sgrHeavyThroughputMiBs: number;
+  cursorHeavyThroughputMiBs: number;
+  sgrRatio: number;
+  peakMemoryMb: number;
+  memoryStableAfterRuns: boolean;
+  passesThreshold: boolean;
+};
+
+type VsCodeIntegrationResults = {
+  messagingWorks: boolean;
+  resizeWorks: boolean;
+  themeIntegrationWorks: boolean;
+  focusManagementWorks: boolean;
 };
 
 type WasmLoadingResults = {
@@ -207,6 +253,15 @@ async function handleProbeMessage(
     case "log":
       console.log("[Probe]", message.payload);
       break;
+    case "integrationTest": {
+      // Echo the message back to validate round-trip messaging
+      console.log("[Probe] Integration test received:", message.payload);
+      probePanel?.webview.postMessage({
+        type: "integrationTestResponse",
+        payload: { echo: message.payload.test, timestamp: message.payload.timestamp },
+      });
+      break;
+    }
     default: {
       const _exhaustive: never = message;
       throw new Error(`unhandled message type: ${JSON.stringify(_exhaustive)}`);

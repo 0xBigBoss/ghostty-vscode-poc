@@ -36,12 +36,31 @@ type ApiCompatibilityResults = {
   selectionAPIsWork: boolean;
 };
 
+type ThroughputResults = {
+  plainTextThroughputMiBs: number;
+  sgrHeavyThroughputMiBs: number;
+  cursorHeavyThroughputMiBs: number;
+  sgrRatio: number;
+  peakMemoryMb: number;
+  memoryStableAfterRuns: boolean;
+  passesThreshold: boolean;
+};
+
+type VsCodeIntegrationResults = {
+  messagingWorks: boolean;
+  resizeWorks: boolean;
+  themeIntegrationWorks: boolean;
+  focusManagementWorks: boolean;
+};
+
 type ProbeResults = {
   timestamp: string;
   wasmLoading?: WasmLoadingResults;
   rendering?: RenderingResults;
   inputHandling?: InputHandlingResults;
   apiCompatibility?: ApiCompatibilityResults;
+  throughput?: ThroughputResults;
+  vsCodeIntegration?: VsCodeIntegrationResults;
 };
 
 suite("Ghostty Probe Extension Test Suite", () => {
@@ -79,15 +98,15 @@ suite("Ghostty Probe Extension Test Suite", () => {
   });
 
   test("Wasm should load successfully in webview (success criteria 5-6)", async function () {
-    this.timeout(60000); // 60 second timeout for wasm loading
+    this.timeout(600000); // 10 minute timeout (runAll includes 10 MiB throughput benchmark)
 
     // Run the probes
     await vscode.commands.executeCommand("ghostty-probe.runAll");
 
-    // Wait for probe results with 30 second timeout
+    // Wait for probe results with 9 minute timeout (throughput takes time)
     const results = (await vscode.commands.executeCommand(
       "ghostty-probe.waitForResults",
-      30000
+      540000
     )) as ProbeResults;
 
     // Validate wasm loading results
@@ -128,7 +147,7 @@ suite("Ghostty Probe Extension Test Suite", () => {
   });
 
   test("Rendering should work correctly (Workstream 2)", async function () {
-    this.timeout(60000);
+    this.timeout(600000); // 10 minute timeout (runAll includes 10 MiB throughput benchmark)
 
     // Run the probes
     await vscode.commands.executeCommand("ghostty-probe.runAll");
@@ -136,7 +155,7 @@ suite("Ghostty Probe Extension Test Suite", () => {
     // Wait for probe results
     const results = (await vscode.commands.executeCommand(
       "ghostty-probe.waitForResults",
-      30000
+      540000
     )) as ProbeResults;
 
     assert.ok(results.rendering, "Should have rendering results");
@@ -168,7 +187,7 @@ suite("Ghostty Probe Extension Test Suite", () => {
   });
 
   test("Input handling should work (Workstream 3)", async function () {
-    this.timeout(60000);
+    this.timeout(600000); // 10 minute timeout (runAll includes 10 MiB throughput benchmark)
 
     // Run the probes
     await vscode.commands.executeCommand("ghostty-probe.runAll");
@@ -176,7 +195,7 @@ suite("Ghostty Probe Extension Test Suite", () => {
     // Wait for probe results
     const results = (await vscode.commands.executeCommand(
       "ghostty-probe.waitForResults",
-      30000
+      540000
     )) as ProbeResults;
 
     assert.ok(results.inputHandling, "Should have input handling results");
@@ -221,7 +240,7 @@ suite("Ghostty Probe Extension Test Suite", () => {
   });
 
   test("xterm.js API compatibility (Workstream 6)", async function () {
-    this.timeout(60000);
+    this.timeout(600000); // 10 minute timeout (runAll includes 10 MiB throughput benchmark)
 
     // Run the probes
     await vscode.commands.executeCommand("ghostty-probe.runAll");
@@ -229,7 +248,7 @@ suite("Ghostty Probe Extension Test Suite", () => {
     // Wait for probe results
     const results = (await vscode.commands.executeCommand(
       "ghostty-probe.waitForResults",
-      30000
+      540000
     )) as ProbeResults;
 
     assert.ok(results.apiCompatibility, "Should have API compatibility results");
@@ -254,5 +273,113 @@ suite("Ghostty Probe Extension Test Suite", () => {
     if (apiResults.missingAPIs.length > 0) {
       console.log(`  Missing APIs: ${apiResults.missingAPIs.join(", ")}`);
     }
+  });
+
+  test("Throughput benchmark should measure and report (Workstream 4)", async function () {
+    this.timeout(600000); // 10 minute timeout for throughput tests (10 MiB x 4 runs)
+
+    // Run the probes
+    await vscode.commands.executeCommand("ghostty-probe.runAll");
+
+    // Wait for probe results with longer timeout for throughput tests
+    const results = (await vscode.commands.executeCommand(
+      "ghostty-probe.waitForResults",
+      540000 // 9 minute timeout for results
+    )) as ProbeResults;
+
+    assert.ok(results.throughput, "Should have throughput results");
+
+    const throughputResults = results.throughput;
+    const TARGET_THROUGHPUT = 30; // MiB/s
+
+    // Verify measurements were taken (non-zero values)
+    assert.ok(
+      throughputResults.plainTextThroughputMiBs > 0,
+      "Plain text throughput must be measured"
+    );
+    assert.ok(
+      throughputResults.sgrHeavyThroughputMiBs > 0,
+      "SGR-heavy throughput must be measured"
+    );
+    assert.ok(
+      throughputResults.cursorHeavyThroughputMiBs > 0,
+      "Cursor-heavy throughput must be measured"
+    );
+
+    // Log the actual throughput for visibility
+    console.log("[Test] Throughput results (10 MiB workload, 4KB chunks per spec):");
+    console.log(`  Plain text: ${throughputResults.plainTextThroughputMiBs} MiB/s`);
+    console.log(`  SGR-heavy: ${throughputResults.sgrHeavyThroughputMiBs} MiB/s`);
+    console.log(`  Cursor-heavy: ${throughputResults.cursorHeavyThroughputMiBs} MiB/s`);
+    console.log(`  SGR ratio: ${throughputResults.sgrRatio}x (target: <=2x)`);
+    console.log(`  Memory stable: ${throughputResults.memoryStableAfterRuns}`);
+    console.log(`  Peak memory delta: ${throughputResults.peakMemoryMb} MB`);
+
+    // Enforce spec thresholds - these are the Go/No-Go criteria per SPEC.md
+    // Plain text must be >30 MiB/s
+    assert.ok(
+      throughputResults.passesThreshold,
+      `Plain text throughput must be >${TARGET_THROUGHPUT} MiB/s per spec, got ${throughputResults.plainTextThroughputMiBs} MiB/s (NO-GO: Consider Phase 2 custom WebGL renderer)`
+    );
+
+    // SGR-heavy must be within 2x of plain text
+    assert.ok(
+      throughputResults.sgrRatio <= 2,
+      `SGR ratio must be <=2x per spec, got ${throughputResults.sgrRatio}x`
+    );
+
+    // Memory must be stable after repeated runs (no leaks)
+    assert.ok(
+      throughputResults.memoryStableAfterRuns,
+      "Memory must be stable after repeated runs (no leaks detected)"
+    );
+
+    console.log("");
+    console.log("[Test] OVERALL: GO - All throughput criteria met");
+  });
+
+  test("VS Code integration should work (Workstream 5)", async function () {
+    this.timeout(600000); // 10 minute timeout (includes throughput benchmark)
+
+    // Run the probes
+    await vscode.commands.executeCommand("ghostty-probe.runAll");
+
+    // Wait for probe results (same timeout as throughput test)
+    const results = (await vscode.commands.executeCommand(
+      "ghostty-probe.waitForResults",
+      540000
+    )) as ProbeResults;
+
+    assert.ok(results.vsCodeIntegration, "Should have VS Code integration results");
+
+    const integrationResults = results.vsCodeIntegration;
+
+    // Verify message passing works
+    assert.strictEqual(
+      integrationResults.messagingWorks,
+      true,
+      "Message passing (extension ↔ webview) should work"
+    );
+
+    // Verify resize handling works
+    assert.strictEqual(
+      integrationResults.resizeWorks,
+      true,
+      "Terminal resize handling should work"
+    );
+
+    // Verify focus management works
+    assert.strictEqual(
+      integrationResults.focusManagementWorks,
+      true,
+      "Focus management (focus/blur APIs) should work"
+    );
+
+    // Log results
+    console.log("[Test] VS Code integration results:");
+    console.log(`  Messaging: ${integrationResults.messagingWorks}`);
+    console.log(`  Resize: ${integrationResults.resizeWorks}`);
+    console.log(`  Theme integration: ${integrationResults.themeIntegrationWorks}`);
+    console.log(`  Focus management: ${integrationResults.focusManagementWorks}`);
   });
 });

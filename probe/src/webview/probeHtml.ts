@@ -11,57 +11,234 @@ export function getProbeHtml(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ghostty Probe</title>
   <style>
+    :root {
+      --ghost-purple: #a855f7;
+      --ghost-pink: #ec4899;
+      --ghost-blue: #3b82f6;
+      --ghost-green: #22c55e;
+      --ghost-yellow: #eab308;
+      --ghost-red: #ef4444;
+    }
     body {
-      font-family: var(--vscode-font-family);
+      font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', var(--vscode-editor-font-family), monospace;
       color: var(--vscode-foreground);
       background: var(--vscode-editor-background);
+      padding: 20px;
+      margin: 0;
+      line-height: 1.5;
+    }
+    .ascii-header {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 10px;
+      line-height: 1.1;
+      color: var(--ghost-purple);
+      white-space: pre;
+      margin-bottom: 8px;
+      text-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+    }
+    .header-container {
+      display: flex;
+      align-items: flex-start;
+      gap: 24px;
+      margin-bottom: 20px;
       padding: 16px;
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+      border-radius: 12px;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+    .header-text {
+      flex: 1;
+    }
+    .header-text h1 {
+      font-size: 1.5em;
+      margin: 0 0 4px 0;
+      background: linear-gradient(90deg, var(--ghost-purple), var(--ghost-pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header-subtitle {
+      color: var(--vscode-descriptionForeground);
+      font-size: 0.9em;
       margin: 0;
     }
-    h1 { font-size: 1.4em; margin-bottom: 16px; }
-    h2 { font-size: 1.1em; margin: 16px 0 8px; border-bottom: 1px solid var(--vscode-panel-border); padding-bottom: 4px; }
-    button {
-      background: var(--vscode-button-background);
-      color: var(--vscode-button-foreground);
-      border: none;
-      padding: 8px 16px;
-      cursor: pointer;
-      margin-right: 8px;
-      margin-bottom: 8px;
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75em;
+      font-weight: 600;
+      margin-left: 8px;
     }
-    button:hover { background: var(--vscode-button-hoverBackground); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .badge-experiment {
+      background: rgba(234, 179, 8, 0.2);
+      color: var(--ghost-yellow);
+      border: 1px solid var(--ghost-yellow);
+    }
+    h2 {
+      font-size: 1em;
+      margin: 20px 0 12px;
+      padding: 8px 12px;
+      background: rgba(168, 85, 247, 0.1);
+      border-left: 3px solid var(--ghost-purple);
+      border-radius: 0 8px 8px 0;
+    }
+    .button-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    button {
+      background: linear-gradient(135deg, var(--ghost-purple) 0%, var(--ghost-blue) 100%);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      cursor: pointer;
+      border-radius: 8px;
+      font-weight: 600;
+      font-family: inherit;
+      font-size: 0.9em;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(168, 85, 247, 0.3);
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     .status { margin: 8px 0; }
-    .pass { color: var(--vscode-charts-green, #4ec9b0); }
-    .fail { color: var(--vscode-errorForeground, #f48771); }
-    .warn { color: var(--vscode-editorWarning-foreground, #cca700); }
+    .pass { color: var(--ghost-green); }
+    .fail { color: var(--ghost-red); }
+    .warn { color: var(--ghost-yellow); }
+    .metric-card {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--vscode-textCodeBlock-background);
+      border-radius: 8px;
+      margin: 4px;
+      border: 1px solid var(--vscode-panel-border);
+    }
+    .metric-value {
+      font-size: 1.4em;
+      font-weight: 700;
+    }
+    .metric-label {
+      font-size: 0.8em;
+      color: var(--vscode-descriptionForeground);
+    }
     pre {
       background: var(--vscode-textCodeBlock-background);
-      padding: 8px;
+      padding: 12px;
       overflow-x: auto;
-      font-size: 0.9em;
+      font-size: 0.85em;
+      border-radius: 8px;
+      border: 1px solid var(--vscode-panel-border);
     }
     canvas { display: none; }
     #terminalContainer {
       width: 100%;
       height: 300px;
-      background: #1e1e1e;
-      margin: 8px 0;
+      background: #0d0d0d;
+      margin: 12px 0;
       display: none;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--vscode-panel-border);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
     #terminalContainer.visible {
       display: block;
     }
-    #results { margin-top: 16px; }
-    table { border-collapse: collapse; width: 100%; margin: 8px 0; }
-    th, td { text-align: left; padding: 4px 8px; border: 1px solid var(--vscode-panel-border); }
-    th { background: var(--vscode-editor-inactiveSelectionBackground); }
+    #results { margin-top: 20px; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border: 1px solid var(--vscode-panel-border);
+    }
+    th {
+      background: rgba(168, 85, 247, 0.15);
+      font-weight: 600;
+    }
+    tr:hover td {
+      background: rgba(168, 85, 247, 0.05);
+    }
+    .throughput-bar {
+      height: 20px;
+      border-radius: 4px;
+      background: var(--vscode-textCodeBlock-background);
+      overflow: hidden;
+      margin: 4px 0;
+    }
+    .throughput-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+    .throughput-fill.low { background: linear-gradient(90deg, var(--ghost-red), var(--ghost-yellow)); }
+    .throughput-fill.medium { background: linear-gradient(90deg, var(--ghost-yellow), var(--ghost-green)); }
+    .throughput-fill.high { background: linear-gradient(90deg, var(--ghost-green), var(--ghost-blue)); }
+    .go-nogo {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 0.9em;
+    }
+    .go-nogo.go {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--ghost-green);
+      border: 1px solid var(--ghost-green);
+    }
+    .go-nogo.nogo {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--ghost-red);
+      border: 1px solid var(--ghost-red);
+    }
+    .footer-note {
+      margin-top: 24px;
+      padding: 12px;
+      background: rgba(59, 130, 246, 0.1);
+      border-radius: 8px;
+      font-size: 0.85em;
+      color: var(--vscode-descriptionForeground);
+      border-left: 3px solid var(--ghost-blue);
+    }
   </style>
 </head>
 <body>
-  <h1>Ghostty Feasibility Probe</h1>
+  <div class="header-container">
+    <div class="ascii-header">
+   ██████╗ ██╗  ██╗ ██████╗ ███████╗████████╗████████╗██╗   ██╗
+  ██╔════╝ ██║  ██║██╔═══██╗██╔════╝╚══██╔══╝╚══██╔══╝╚██╗ ██╔╝
+  ██║  ███╗███████║██║   ██║███████╗   ██║      ██║    ╚████╔╝
+  ██║   ██║██╔══██║██║   ██║╚════██║   ██║      ██║     ╚██╔╝
+  ╚██████╔╝██║  ██║╚██████╔╝███████║   ██║      ██║      ██║
+   ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝   ╚═╝      ╚═╝      ╚═╝
+           ██╗    ██╗███████╗██████╗       ██████╗ ██████╗  ██████╗ ██████╗ ███████╗
+           ██║    ██║██╔════╝██╔══██╗      ██╔══██╗██╔══██╗██╔═══██╗██╔══██╗██╔════╝
+           ██║ █╗ ██║█████╗  ██████╔╝█████╗██████╔╝██████╔╝██║   ██║██████╔╝█████╗
+           ██║███╗██║██╔══╝  ██╔══██╗╚════╝██╔═══╝ ██╔══██╗██║   ██║██╔══██╗██╔══╝
+           ╚███╔███╔╝███████╗██████╔╝      ██║     ██║  ██║╚██████╔╝██████╔╝███████╗
+            ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝
+    </div>
+    <div class="header-text">
+      <h1>Feasibility Probe <span class="badge badge-experiment">EXPERIMENT</span></h1>
+      <p class="header-subtitle">Can ghostty-web replace xterm.js in VS Code?</p>
+    </div>
+  </div>
 
-  <div>
+  <div class="button-group">
     <button id="runWasmLoading">Test Wasm Loading</button>
     <button id="runAll">Run All Probes</button>
   </div>
@@ -92,6 +269,8 @@ export function getProbeHtml(
       rendering: null,
       inputHandling: null,
       apiCompatibility: null,
+      throughput: null,
+      vsCodeIntegration: null,
       capabilities: null,
       microbench: null,
       atlasSampling: null
@@ -358,44 +537,50 @@ export function getProbeHtml(
         }
 
         // Test 2: ANSI colors - write colored text and verify color attributes in buffer
+        // First write normal text, then red text to compare
+        const normalText = 'NormalText';
         const colorTestText = 'RedText';
-        term.write('\\x1b[31m' + colorTestText + '\\x1b[0m\\r\\n');  // Red text (SGR 31)
+        term.write(normalText + '\\x1b[31m' + colorTestText + '\\x1b[0m\\r\\n');  // Normal then Red text (SGR 31)
 
         // Verify both text content AND foreground color attribute
         const line1Obj = term.buffer?.active?.getLine(1);
         const line1Text = readBufferLine(term, 1);
 
         if (line1Text && line1Text.includes(colorTestText) && line1Obj) {
-          // Check the foreground color of the first cell of colored text
+          // Get normal cell and colored cell to compare
+          const normalPos = line1Text.indexOf(normalText);
           const colorStartPos = line1Text.indexOf(colorTestText);
+          const normalCell = line1Obj.getCell(normalPos);
           const colorCell = line1Obj.getCell(colorStartPos);
 
           if (colorCell && typeof colorCell.getFgColor === 'function') {
-            const fgColor = colorCell.getFgColor();
-            // Red should have non-zero foreground color (palette index or RGB)
-            // SGR 31 = red, which should result in fgColor being non-default
-            // Check getFgColorMode for palette vs RGB mode
-            const fgMode = typeof colorCell.getFgColorMode === 'function' ? colorCell.getFgColorMode() : -1;
+            const colorFg = colorCell.getFgColor();
+            const normalFg = normalCell?.getFgColor?.() ?? 0;
+            const colorMode = typeof colorCell.getFgColorMode === 'function' ? colorCell.getFgColorMode() : -1;
+            const normalMode = typeof normalCell?.getFgColorMode === 'function' ? normalCell.getFgColorMode() : -1;
 
-            if (fgColor !== 0 || fgMode >= 0) {
+            // For colors to work, the red text must have DIFFERENT attributes than normal text.
+            // We check BOTH getFgColor() AND getFgColorMode() - at least one must differ.
+            // This prevents false positives when both return the same default RGB values.
+            const fgColorDiffers = colorFg !== normalFg;
+            const fgModeDiffers = colorMode !== normalMode;
+
+            if (fgColorDiffers || fgModeDiffers) {
+              // At least one attribute differs - ANSI color was applied
               results.colorsWork = true;
-              addResult(section, 'ANSI colors', \`Verified: text="\${colorTestText}", fgColor=0x\${fgColor.toString(16)}, mode=\${fgMode}\`, 'pass');
+              const diffDesc = fgColorDiffers
+                ? \`fgColor: normal=0x\${normalFg.toString(16)}, red=0x\${colorFg.toString(16)}\`
+                : \`fgMode: normal=\${normalMode}, red=\${colorMode}\`;
+              addResult(section, 'ANSI colors', \`Verified color difference: \${diffDesc}\`, 'pass');
             } else {
-              // Color might be default - check if at least the cell has different attributes than a normal cell
-              const normalCell = line1Obj.getCell(0);
-              const normalFg = normalCell?.getFgColor?.() ?? 0;
-              if (fgColor !== normalFg || colorTestText) {
-                results.colorsWork = true;
-                addResult(section, 'ANSI colors', \`Text rendered with color code, fgColor=0x\${fgColor.toString(16)}\`, 'pass');
-              } else {
-                results.colorsWork = false;
-                addResult(section, 'ANSI colors', \`FAILED - Color attribute not set, fgColor=0x\${fgColor.toString(16)}\`, 'fail');
-              }
+              // No detectable difference - ANSI colors not working
+              results.colorsWork = false;
+              addResult(section, 'ANSI colors', \`FAILED - No color difference detected: fgColor=0x\${colorFg.toString(16)}, fgMode=\${colorMode}\`, 'fail');
             }
           } else {
-            // getFgColor not available - fall back to verifying text content at minimum
-            results.colorsWork = true;
-            addResult(section, 'ANSI colors', \`Text rendered (getFgColor not available): "\${line1Text}"\`, 'warn');
+            // getFgColor not available - cannot verify color attributes
+            results.colorsWork = false;
+            addResult(section, 'ANSI colors', 'FAILED - getFgColor() not available on buffer cells', 'fail');
           }
         } else {
           results.colorsWork = false;
@@ -513,22 +698,32 @@ export function getProbeHtml(
           addResult(section, 'input() method', 'Not available', 'fail');
         }
 
-        // Test 3: Arrow key sequences - simulate arrow up and verify escape sequence
+        // Test 3: Arrow key sequences - simulate arrow up and verify FULL escape sequence
         receivedData = [];
-        const arrowUpSeq = '\\x1b[A';  // Standard arrow up escape sequence
+        const arrowUpSeq = '\\x1b[A';  // Standard arrow up escape sequence: ESC [ A
         term.input(arrowUpSeq, true);
 
         if (receivedData.length > 0) {
           const received = receivedData.join('');
-          // Check if we got an escape sequence (starts with ESC = 0x1b)
-          const codes = received.split('').map(c => c.charCodeAt(0)).join(', ');
-          if (received.charCodeAt(0) === 0x1b) {
+          const codes = received.split('').map(c => c.charCodeAt(0));
+          const codesStr = codes.join(', ');
+
+          // Must verify the FULL arrow up sequence: ESC (27) + [ (91) + A (65)
+          // Or application mode: ESC (27) + O (79) + A (65)
+          const isCSIArrowUp = codes.length >= 3 && codes[0] === 0x1b && codes[1] === 0x5b && codes[2] === 0x41;  // ESC [ A
+          const isSS3ArrowUp = codes.length >= 3 && codes[0] === 0x1b && codes[1] === 0x4f && codes[2] === 0x41;  // ESC O A
+
+          if (isCSIArrowUp || isSS3ArrowUp) {
             results.arrowKeysWork = true;
-            addResult(section, 'Arrow key sequence', \`Received: [\${codes}]\`, 'pass');
-          } else {
-            // Got data but not the expected sequence
+            addResult(section, 'Arrow key sequence', \`Verified full sequence: [\${codesStr}] (\${isCSIArrowUp ? 'CSI' : 'SS3'} mode)\`, 'pass');
+          } else if (codes[0] === 0x1b) {
+            // Got ESC but wrong sequence
             results.arrowKeysWork = false;
-            addResult(section, 'Arrow key sequence', \`FAILED - Expected ESC sequence, got: [\${codes}]\`, 'fail');
+            addResult(section, 'Arrow key sequence', \`FAILED - Expected ESC[A or ESC O A, got: [\${codesStr}]\`, 'fail');
+          } else {
+            // Got data but not an escape sequence at all
+            results.arrowKeysWork = false;
+            addResult(section, 'Arrow key sequence', \`FAILED - Expected ESC sequence, got: [\${codesStr}]\`, 'fail');
           }
         } else {
           // FAIL - no data received means arrow keys don't work via onData
@@ -768,6 +963,476 @@ export function getProbeHtml(
       return results;
     }
 
+    // --- Throughput Benchmark (Workstream 4) ---
+    async function probeThroughput() {
+      console.log('[Throughput] Starting throughput probe...');
+      const section = createSection('Throughput Benchmark (Workstream 4)');
+
+      const results = {
+        plainTextThroughputMiBs: 0,
+        sgrHeavyThroughputMiBs: 0,
+        cursorHeavyThroughputMiBs: 0,
+        sgrRatio: 0,
+        peakMemoryMb: 0,
+        memoryStableAfterRuns: false,
+        passesThreshold: false
+      };
+
+      if (!terminalInstance) {
+        console.error('[Throughput] Terminal not initialized!');
+        addResult(section, 'Terminal', 'Not initialized - run Wasm Loading first', 'fail');
+        probeResults.throughput = results;
+        return results;
+      }
+      console.log('[Throughput] Terminal instance found, starting benchmarks...');
+
+      const term = terminalInstance;
+      const TARGET_THROUGHPUT = 30; // MiB/s minimum threshold
+      // 10 MiB workload per spec requirement
+      const SPEC_SIZE_MIB = 10;
+      const CHUNK_SIZE = 4096; // 4KB chunks per spec
+
+      // Generate test data helpers - all generators produce ~4KB chunks per spec
+      function generatePlainText(sizeMiB) {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ';
+        const targetBytes = sizeMiB * 1024 * 1024;
+        const chunks = [];
+        let totalBytes = 0;
+
+        while (totalBytes < targetBytes) {
+          let chunk = '';
+          // Build exactly CHUNK_SIZE bytes per chunk
+          for (let i = 0; i < CHUNK_SIZE; i++) {
+            chunk += chars[Math.floor(Math.random() * chars.length)];
+          }
+          chunks.push(chunk);
+          totalBytes += chunk.length;
+        }
+        return { chunks, totalBytes };
+      }
+
+      function generateSgrHeavy(sizeMiB) {
+        // SGR-heavy: lots of color changes, targeting ~4KB chunks
+        // Each unit is: color code (5 bytes) + "Text" (4 bytes) = 9 bytes
+        // Build complete units to avoid splitting escape sequences (ISSUE-3 fix)
+        const colors = ['\\x1b[31m', '\\x1b[32m', '\\x1b[33m', '\\x1b[34m', '\\x1b[35m', '\\x1b[36m', '\\x1b[0m'];
+        const targetBytes = sizeMiB * 1024 * 1024;
+        const chunks = [];
+        let totalBytes = 0;
+        const UNIT_SIZE = 9; // color (5) + "Text" (4)
+        const UNITS_PER_CHUNK = Math.floor(CHUNK_SIZE / UNIT_SIZE);
+
+        while (totalBytes < targetBytes) {
+          let chunk = '';
+          // Build complete units only - never truncate mid-sequence
+          for (let i = 0; i < UNITS_PER_CHUNK; i++) {
+            chunk += colors[i % colors.length] + 'Text';
+          }
+          chunks.push(chunk);
+          totalBytes += chunk.length;
+        }
+        return { chunks, totalBytes };
+      }
+
+      function generateCursorHeavy(sizeMiB) {
+        // Cursor/erase-heavy: lots of cursor moves and line clears, targeting ~4KB chunks
+        // Each unit is: ESC[rr;ccHX ESC[K = ~12 bytes max
+        // Build complete units to avoid splitting escape sequences (ISSUE-3 fix)
+        const targetBytes = sizeMiB * 1024 * 1024;
+        const chunks = [];
+        let totalBytes = 0;
+        const UNITS_PER_CHUNK = 300; // ~12 bytes each = ~3.6KB per chunk
+
+        while (totalBytes < targetBytes) {
+          let chunk = '';
+          // Build complete cursor sequences only - never truncate mid-sequence
+          for (let i = 0; i < UNITS_PER_CHUNK; i++) {
+            const row = (i % 20) + 1;
+            const col = (i % 60) + 1;
+            chunk += \`\\x1b[\${row};\${col}HX\\x1b[K\`;
+          }
+          chunks.push(chunk);
+          totalBytes += chunk.length;
+        }
+        return { chunks, totalBytes };
+      }
+
+      // Run throughput test for a workload
+      // ISSUE-1 fix: Await write completion by yielding after each write
+      // ISSUE-2 fix: Matrix effect = scrolling text visible during benchmark
+      async function measureThroughput(chunks, totalBytes) {
+        console.log(\`[Throughput] measureThroughput called with \${chunks.length} chunks, \${totalBytes} bytes\`);
+        const start = performance.now();
+
+        for (let i = 0; i < chunks.length; i++) {
+          // Write the chunk
+          term.write(chunks[i]);
+
+          // Yield after EVERY write to ensure:
+          // 1. Write is fully processed (awaiting completion per spec)
+          // 2. Terminal repaints (matrix text effect visible)
+          await new Promise(resolve => requestAnimationFrame(resolve));
+
+          // Log progress periodically
+          if (i % 100 === 0) {
+            console.log(\`[Throughput] Progress: \${i}/\${chunks.length} chunks (\${Math.round(i/chunks.length*100)}%)\`);
+          }
+        }
+
+        // Final yield to ensure last writes are rendered
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        const elapsed = performance.now() - start;
+        const throughputMiBs = (totalBytes / (1024 * 1024)) / (elapsed / 1000);
+        console.log(\`[Throughput] Completed: \${throughputMiBs.toFixed(2)} MiB/s in \${elapsed.toFixed(0)}ms\`);
+        return { throughputMiBs, elapsedMs: elapsed };
+      }
+
+      // Get memory usage (try wasm memory first, fallback to JS heap)
+      function getMemoryMb() {
+        // Try to get wasm memory if exposed by ghostty-web
+        if (typeof WebAssembly !== 'undefined' && ghosttyInstance?.memory) {
+          return ghosttyInstance.memory.buffer.byteLength / (1024 * 1024);
+        }
+        // Fallback to JS heap
+        if (performance.memory) {
+          return performance.memory.usedJSHeapSize / (1024 * 1024);
+        }
+        return 0;
+      }
+
+      try {
+        // Track memory across multiple runs for leak detection
+        const memoryReadings = [];
+        const baselineMemory = getMemoryMb();
+        memoryReadings.push(baselineMemory);
+
+        // Test 1: Plain text throughput (10 MiB per spec)
+        addResult(section, 'Test 1', \`Running plain text benchmark (\${SPEC_SIZE_MIB} MiB)...\`, 'warn');
+        const plainData = generatePlainText(SPEC_SIZE_MIB);
+        const plainResult = await measureThroughput(plainData.chunks, plainData.totalBytes);
+        results.plainTextThroughputMiBs = Math.round(plainResult.throughputMiBs * 10) / 10;
+        memoryReadings.push(getMemoryMb());
+
+        const plainStatus = results.plainTextThroughputMiBs >= TARGET_THROUGHPUT ? 'pass' : 'fail';
+        addResult(section, 'Plain text throughput', \`\${results.plainTextThroughputMiBs} MiB/s (target: >\${TARGET_THROUGHPUT})\`, plainStatus);
+
+        // Clear terminal between tests
+        term.clear();
+
+        // Test 2: SGR-heavy throughput
+        addResult(section, 'Test 2', \`Running SGR-heavy benchmark (\${SPEC_SIZE_MIB} MiB)...\`, 'warn');
+        const sgrData = generateSgrHeavy(SPEC_SIZE_MIB);
+        const sgrResult = await measureThroughput(sgrData.chunks, sgrData.totalBytes);
+        results.sgrHeavyThroughputMiBs = Math.round(sgrResult.throughputMiBs * 10) / 10;
+        memoryReadings.push(getMemoryMb());
+
+        // SGR should be within 2x of plain text
+        results.sgrRatio = results.sgrHeavyThroughputMiBs > 0
+          ? Math.round((results.plainTextThroughputMiBs / results.sgrHeavyThroughputMiBs) * 10) / 10
+          : 0;
+        const sgrStatus = results.sgrRatio <= 2 ? 'pass' : 'warn';
+        addResult(section, 'SGR-heavy throughput', \`\${results.sgrHeavyThroughputMiBs} MiB/s (ratio: \${results.sgrRatio}x, target: <=2x)\`, sgrStatus);
+
+        term.clear();
+
+        // Test 3: Cursor-heavy throughput
+        addResult(section, 'Test 3', \`Running cursor-heavy benchmark (\${SPEC_SIZE_MIB} MiB)...\`, 'warn');
+        const cursorData = generateCursorHeavy(SPEC_SIZE_MIB);
+        const cursorResult = await measureThroughput(cursorData.chunks, cursorData.totalBytes);
+        results.cursorHeavyThroughputMiBs = Math.round(cursorResult.throughputMiBs * 10) / 10;
+        memoryReadings.push(getMemoryMb());
+
+        addResult(section, 'Cursor-heavy throughput', \`\${results.cursorHeavyThroughputMiBs} MiB/s\`, 'pass');
+
+        // Memory leak detection: run again and compare (keep terminal visible for matrix effect!)
+        const extraRun = generatePlainText(SPEC_SIZE_MIB);
+        await measureThroughput(extraRun.chunks, extraRun.totalBytes);
+        memoryReadings.push(getMemoryMb());
+
+        // Calculate peak memory delta and stability
+        const peakMemory = Math.max(...memoryReadings);
+        results.peakMemoryMb = Math.round((peakMemory - baselineMemory) * 10) / 10;
+
+        // Check if memory is stable (last two readings within 10% of each other)
+        const lastTwo = memoryReadings.slice(-2);
+        const memoryGrowth = lastTwo.length === 2 ? Math.abs(lastTwo[1] - lastTwo[0]) / lastTwo[0] : 0;
+        results.memoryStableAfterRuns = memoryGrowth < 0.1;
+
+        if (results.peakMemoryMb > 0) {
+          const memStatus = results.memoryStableAfterRuns ? 'pass' : 'warn';
+          addResult(section, 'Memory delta', \`\${results.peakMemoryMb} MB (stable: \${results.memoryStableAfterRuns})\`, memStatus);
+        } else {
+          addResult(section, 'Memory tracking', 'Not available', 'warn');
+        }
+
+        // Overall pass/fail per spec criteria
+        results.passesThreshold = results.plainTextThroughputMiBs >= TARGET_THROUGHPUT;
+
+        // Summary with visual Go/No-Go indicator
+        const goStatus = results.passesThreshold && results.sgrRatio <= 2 && results.memoryStableAfterRuns;
+        const plainPct = Math.min(100, (results.plainTextThroughputMiBs / TARGET_THROUGHPUT) * 100);
+        const sgrPct = Math.min(100, (results.sgrHeavyThroughputMiBs / TARGET_THROUGHPUT) * 100);
+        const cursorPct = Math.min(100, (results.cursorHeavyThroughputMiBs / TARGET_THROUGHPUT) * 100);
+
+        const summarySection = document.createElement('div');
+        summarySection.innerHTML = \`
+          <h3>📊 Throughput Results</h3>
+
+          <div style="display: flex; gap: 16px; flex-wrap: wrap; margin: 16px 0;">
+            <div class="metric-card">
+              <span class="metric-value \${results.passesThreshold ? 'pass' : 'fail'}">\${results.plainTextThroughputMiBs}</span>
+              <span class="metric-label">MiB/s plain</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-value">\${results.sgrHeavyThroughputMiBs}</span>
+              <span class="metric-label">MiB/s SGR</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-value">\${results.cursorHeavyThroughputMiBs}</span>
+              <span class="metric-label">MiB/s cursor</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-value \${results.sgrRatio <= 2 ? 'pass' : 'warn'}">\${results.sgrRatio}x</span>
+              <span class="metric-label">SGR ratio</span>
+            </div>
+          </div>
+
+          <div style="margin: 16px 0;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <span style="width: 100px;">Plain text:</span>
+              <div class="throughput-bar" style="flex: 1;">
+                <div class="throughput-fill \${plainPct < 50 ? 'low' : plainPct < 100 ? 'medium' : 'high'}" style="width: \${plainPct}%;"></div>
+              </div>
+              <span style="width: 80px; text-align: right;">\${results.plainTextThroughputMiBs}/30</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <span style="width: 100px;">SGR-heavy:</span>
+              <div class="throughput-bar" style="flex: 1;">
+                <div class="throughput-fill \${sgrPct < 50 ? 'low' : sgrPct < 100 ? 'medium' : 'high'}" style="width: \${sgrPct}%;"></div>
+              </div>
+              <span style="width: 80px; text-align: right;">\${results.sgrHeavyThroughputMiBs}/30</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="width: 100px;">Cursor:</span>
+              <div class="throughput-bar" style="flex: 1;">
+                <div class="throughput-fill \${cursorPct < 50 ? 'low' : cursorPct < 100 ? 'medium' : 'high'}" style="width: \${cursorPct}%;"></div>
+              </div>
+              <span style="width: 80px; text-align: right;">\${results.cursorHeavyThroughputMiBs}/30</span>
+            </div>
+          </div>
+
+          <div style="margin-top: 20px; padding: 16px; background: \${goStatus ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'}; border-radius: 8px; border: 1px solid \${goStatus ? 'var(--ghost-green)' : 'var(--ghost-red)'};">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span style="font-size: 2em;">\${goStatus ? '✅' : '🔬'}</span>
+              <div>
+                <div class="go-nogo \${goStatus ? 'go' : 'nogo'}">\${goStatus ? 'GO' : 'NO-GO'} for Phase 1</div>
+                <p style="margin: 8px 0 0; font-size: 0.9em; color: var(--vscode-descriptionForeground);">
+                  \${goStatus
+                    ? 'Throughput meets xterm.js baseline. Ready for production testing.'
+                    : 'Canvas2D rendering is the bottleneck. Phase 2 (custom WebGL) recommended.'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <table style="margin-top: 16px;">
+            <tr><th>Check</th><th>Target</th><th>Actual</th><th>Status</th></tr>
+            <tr>
+              <td>Plain text throughput</td>
+              <td>>30 MiB/s</td>
+              <td>\${results.plainTextThroughputMiBs} MiB/s</td>
+              <td class="\${results.passesThreshold ? 'pass' : 'fail'}">\${results.passesThreshold ? '✓ PASS' : '✗ FAIL'}</td>
+            </tr>
+            <tr>
+              <td>SGR ratio</td>
+              <td>≤2x</td>
+              <td>\${results.sgrRatio}x</td>
+              <td class="\${results.sgrRatio <= 2 ? 'pass' : 'fail'}">\${results.sgrRatio <= 2 ? '✓ PASS' : '✗ FAIL'}</td>
+            </tr>
+            <tr>
+              <td>Memory stability</td>
+              <td>Stable</td>
+              <td>\${results.memoryStableAfterRuns ? 'Stable' : 'Growing'} (Δ\${results.peakMemoryMb}MB)</td>
+              <td class="\${results.memoryStableAfterRuns ? 'pass' : 'warn'}">\${results.memoryStableAfterRuns ? '✓ PASS' : '⚠ CHECK'}</td>
+            </tr>
+          </table>
+        \`;
+        section.appendChild(summarySection);
+
+        term.write('\\r\\n\\x1b[33m--- Throughput Test Complete ---\\x1b[0m\\r\\n');
+
+      } catch (err) {
+        addResult(section, 'Error', err.message || String(err), 'fail');
+      }
+
+      probeResults.throughput = results;
+      return results;
+    }
+
+    // --- VS Code Integration Probe (Workstream 5) ---
+    // Track round-trip message responses
+    let integrationTestResolve = null;
+
+    window.addEventListener('message', event => {
+      const message = event.data;
+      if (message.type === 'integrationTestResponse' && integrationTestResolve) {
+        integrationTestResolve(message.payload);
+        integrationTestResolve = null;
+      }
+    });
+
+    async function probeVsCodeIntegration() {
+      const section = createSection('VS Code Integration (Workstream 5)');
+
+      const results = {
+        messagingWorks: false,
+        resizeWorks: false,
+        themeIntegrationWorks: false,
+        focusManagementWorks: false
+      };
+
+      if (!terminalInstance) {
+        addResult(section, 'Terminal', 'Not initialized - run Wasm Loading first', 'fail');
+        probeResults.vsCodeIntegration = results;
+        return results;
+      }
+
+      const term = terminalInstance;
+
+      try {
+        // Test 1: Message passing with ACTUAL round-trip validation
+        // Send a message and wait for response from extension
+        try {
+          const testPayload = { test: 'ping', timestamp: Date.now() };
+          const responsePromise = new Promise((resolve, reject) => {
+            integrationTestResolve = resolve;
+            setTimeout(() => {
+              if (integrationTestResolve) {
+                integrationTestResolve = null;
+                reject(new Error('Timeout waiting for response'));
+              }
+            }, 2000);
+          });
+
+          vscode.postMessage({ type: 'integrationTest', payload: testPayload });
+
+          const response = await responsePromise;
+          // Verify we got the echo back
+          if (response && response.echo === testPayload.test) {
+            results.messagingWorks = true;
+            addResult(section, 'Message passing', 'Round-trip verified (extension echoed message)', 'pass');
+          } else {
+            results.messagingWorks = false;
+            addResult(section, 'Message passing', 'Extension did not echo correctly', 'fail');
+          }
+        } catch (msgErr) {
+          results.messagingWorks = false;
+          addResult(section, 'Message passing', \`Failed: \${msgErr.message}\`, 'fail');
+        }
+
+        // Test 2: Terminal resize handling
+        try {
+          const originalCols = term.cols;
+          const originalRows = term.rows;
+
+          // Resize to different dimensions
+          term.resize(100, 30);
+
+          // Verify the resize took effect
+          if (term.cols === 100 && term.rows === 30) {
+            results.resizeWorks = true;
+            addResult(section, 'Resize handling', \`Resized from \${originalCols}x\${originalRows} to 100x30\`, 'pass');
+          } else {
+            addResult(section, 'Resize handling', \`Expected 100x30, got \${term.cols}x\${term.rows}\`, 'fail');
+          }
+
+          // Resize back
+          term.resize(originalCols, originalRows);
+        } catch (resizeErr) {
+          results.resizeWorks = false;
+          addResult(section, 'Resize handling', \`Failed: \${resizeErr.message}\`, 'fail');
+        }
+
+        // Test 3: Theme/color integration
+        // Check if VS Code CSS variables are accessible
+        try {
+          const computedStyle = getComputedStyle(document.body);
+          const vscBg = computedStyle.getPropertyValue('--vscode-editor-background');
+          const vscFg = computedStyle.getPropertyValue('--vscode-foreground');
+
+          if (vscBg && vscFg) {
+            results.themeIntegrationWorks = true;
+            addResult(section, 'Theme integration', \`VS Code theme variables accessible (bg: \${vscBg.trim()})\`, 'pass');
+          } else {
+            addResult(section, 'Theme integration', 'VS Code CSS variables not found', 'warn');
+          }
+        } catch (themeErr) {
+          addResult(section, 'Theme integration', \`Failed: \${themeErr.message}\`, 'fail');
+        }
+
+        // Test 4: Focus management
+        try {
+          // Test focus/blur APIs
+          const hasFocus = typeof term.focus === 'function';
+          const hasBlur = typeof term.blur === 'function';
+
+          if (hasFocus && hasBlur) {
+            term.focus();
+            // Note: We can't reliably test if focus actually worked in automated tests
+            // but we verify the APIs exist and are callable
+            term.blur();
+            results.focusManagementWorks = true;
+            addResult(section, 'Focus management', 'focus() and blur() APIs work', 'pass');
+          } else {
+            addResult(section, 'Focus management', 'APIs missing', 'fail');
+          }
+        } catch (focusErr) {
+          addResult(section, 'Focus management', \`Failed: \${focusErr.message}\`, 'fail');
+        }
+
+        // Test 5: onResize event
+        let resizeEventReceived = false;
+        if (term.onResize) {
+          const resizeDisposable = term.onResize((e) => {
+            resizeEventReceived = true;
+          });
+
+          // Trigger resize to test event
+          const origCols = term.cols;
+          term.resize(origCols + 1, term.rows);
+          term.resize(origCols, term.rows);
+
+          resizeDisposable.dispose();
+          addResult(section, 'onResize event', resizeEventReceived ? 'Event fired' : 'Event registered (manual trigger may be needed)', resizeEventReceived ? 'pass' : 'warn');
+        } else {
+          addResult(section, 'onResize event', 'Not available', 'warn');
+        }
+
+        // Summary
+        const allPass = results.messagingWorks && results.resizeWorks && results.themeIntegrationWorks && results.focusManagementWorks;
+        const summarySection = document.createElement('div');
+        summarySection.innerHTML = \`
+          <h3>Summary</h3>
+          <table>
+            <tr><th>Metric</th><th>Status</th></tr>
+            <tr><td>messagingWorks</td><td class="\${results.messagingWorks ? 'pass' : 'fail'}">\${results.messagingWorks ? 'PASS' : 'FAIL'}</td></tr>
+            <tr><td>resizeWorks</td><td class="\${results.resizeWorks ? 'pass' : 'fail'}">\${results.resizeWorks ? 'PASS' : 'FAIL'}</td></tr>
+            <tr><td>themeIntegrationWorks</td><td class="\${results.themeIntegrationWorks ? 'pass' : 'warn'}">\${results.themeIntegrationWorks ? 'PASS' : 'CHECK'}</td></tr>
+            <tr><td>focusManagementWorks</td><td class="\${results.focusManagementWorks ? 'pass' : 'fail'}">\${results.focusManagementWorks ? 'PASS' : 'FAIL'}</td></tr>
+          </table>
+          <p><strong>Overall:</strong> <span class="\${allPass ? 'pass' : 'warn'}">\${allPass ? 'All integration tests pass' : 'Some tests need attention'}</span></p>
+        \`;
+        section.appendChild(summarySection);
+
+      } catch (err) {
+        addResult(section, 'Error', err.message || String(err), 'fail');
+      }
+
+      probeResults.vsCodeIntegration = results;
+      return results;
+    }
+
     // --- UI Helpers ---
     function createSection(title) {
       const h2 = document.createElement('h2');
@@ -790,22 +1455,39 @@ export function getProbeHtml(
       resultsDiv.innerHTML = '';
       probeResults.timestamp = new Date().toISOString();
 
+      console.log('[Probe] Starting all probes...');
+
       // Workstream 1: Wasm Loading
+      console.log('[Probe] Running Wasm Loading...');
       await probeWasmLoading();
 
       // Workstream 2: Basic Rendering
+      console.log('[Probe] Running Rendering...');
       probeRendering();
 
       // Workstream 3: Input Handling
+      console.log('[Probe] Running Input Handling...');
       probeInputHandling();
 
+      // Workstream 4: Throughput Benchmark
+      console.log('[Probe] Running Throughput Benchmark (this takes ~2 min)...');
+      await probeThroughput();
+      console.log('[Probe] Throughput complete!');
+
+      // Workstream 5: VS Code Integration
+      console.log('[Probe] Running VS Code Integration...');
+      await probeVsCodeIntegration();
+
       // Workstream 6: API Compatibility
+      console.log('[Probe] Running API Compatibility...');
       probeApiCompatibility();
 
       // WebGL2 Capabilities (bonus)
+      console.log('[Probe] Running Capabilities...');
       probeCapabilities();
 
       // Send results to extension
+      console.log('[Probe] All probes complete! Sending results...');
       vscode.postMessage({ type: 'probeResults', payload: probeResults });
     }
 
