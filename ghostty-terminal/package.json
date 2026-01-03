@@ -1,0 +1,55 @@
+{
+  "name": "ghostty-terminal",
+  "displayName": "Ghostty Terminal",
+  "description": "VS Code terminal powered by ghostty-web with real PTY integration",
+  "version": "0.0.1",
+  "publisher": "0xbigboss",
+  "private": true,
+  "engines": {
+    "vscode": "^1.106.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ghostty.newTerminal",
+        "title": "Ghostty: New Terminal"
+      },
+      {
+        "command": "ghostty.newTerminalHere",
+        "title": "Ghostty: New Terminal Here"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "ghostty.newTerminalHere",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build:prod",
+    "compile": "tsc -p ./",
+    "build": "node esbuild.config.mjs",
+    "build:prod": "NODE_ENV=production node esbuild.config.mjs",
+    "watch": "node esbuild.config.mjs --watch",
+    "lint": "eslint src",
+    "postinstall": "node-pty-prebuilt-multiarch || true"
+  },
+  "dependencies": {
+    "ghostty-web": "0.4.0",
+    "node-pty": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.106.0",
+    "esbuild": "^0.27.2",
+    "typescript": "~5.7.0"
+  }
+}
