@@ -277,6 +277,16 @@ function startMatrixDemo(): void {
     return;
   }
 
+  // Stop any existing instance to prevent orphaned animation loops
+  if (matrixRain) {
+    matrixRain.stop();
+    matrixRain = null;
+  }
+  if (metricsUpdateInterval) {
+    clearInterval(metricsUpdateInterval);
+    metricsUpdateInterval = null;
+  }
+
   // Create and start the demo
   const speed = matrixSpeed ? parseInt(matrixSpeed.value, 10) : 5;
   matrixRain = new MatrixRain(terminalInstance, { speed, density: 0.4 });

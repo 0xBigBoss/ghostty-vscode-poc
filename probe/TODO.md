@@ -1,20 +1,17 @@
-# TODO - Probe Refactoring
+# TODO - Matrix Rain Demo
 
 ## Completed
-- [x] Phase 1: Extract types to src/lib/types.ts
-- [x] Phase 2: Extract data generators to src/lib/data-generators.ts
-- [x] Phase 3: Create terminal adapter interface in src/lib/terminal-adapter.ts
-- [x] Phase 4: Extract 7 probes to src/lib/probes/
-  - wasm-loading.ts
-  - rendering.ts
-  - input-handling.ts
-  - throughput.ts
-  - vscode-integration.ts
-  - api-compatibility.ts
-  - webgl-capabilities.ts
-- [x] Phase 5: Set up esbuild bundling
-- [x] Phase 6: Create VS Code adapter in src/adapters/vscode/
-- [x] Phase 7: Verify build and tests pass
+- [x] Create Matrix rain engine (src/lib/demos/matrix-rain.ts)
+- [x] Create demos index export (src/lib/demos/index.ts)
+- [x] Add UI controls to template.html (start/stop toggle, speed slider)
+- [x] Add metrics panel to template.html (MiB/s, FPS, chars/sec)
+- [x] Add Matrix-themed styles to styles.css
+- [x] Wire up controls in main.ts with message handlers
+- [x] Register commands in extension.ts (start, stop, getMetrics)
+- [x] Add command contributions to package.json
+- [x] Add Matrix demo integration test
+- [x] Fix startMatrixDemo to stop existing instance before starting new one (ISSUE-1)
+- [x] Add getMatrixMetrics command to package.json contributes.commands (ISSUE-2)
 
 ## In Progress
 
@@ -25,8 +22,7 @@
 ## Notes
 - Following plan at ~/.claude/plans/validated-crunching-pelican.md
 - Working directory: /Users/allen/0xbigboss/ghostty-vscode/probe
-- 10/10 tests pass (memory stability enforced per SPEC.md:193)
-- probeHtml.ts deleted - no longer used
-- Extension now loads bundled webview from out/webview/
-- Build order: tsc (for type checking) -> esbuild (for bundling)
-- Memory stability compares post-warmup to final (not pre-test baseline) to avoid false positives from one-time WASM allocations
+- 11/11 tests pass (including new Matrix demo test)
+- Matrix demo achieves 121 FPS with 241 frames rendered in 2 second test
+- Fixed race condition in waitForResults by clearing stale results on runAll
+- Fixed orphaned animation loop issue when startMatrixDemo called multiple times

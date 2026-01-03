@@ -30,6 +30,10 @@
       {
         "command": "ghostty-probe.stopMatrixDemo",
         "title": "Ghostty: Stop Matrix Demo"
+      },
+      {
+        "command": "ghostty-probe.getMatrixMetrics",
+        "title": "Ghostty: Get Matrix Demo Metrics"
       }
     ]
   },
