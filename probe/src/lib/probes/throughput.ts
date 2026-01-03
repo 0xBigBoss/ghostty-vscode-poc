@@ -144,36 +144,43 @@ export async function probeThroughput(
     const peakMemory = Math.max(...memoryReadings);
     results.peakMemoryMb = Math.round((peakMemory - baselineMemory) * 10) / 10;
 
-    // Check memory stability: we want to detect unbounded growth (memory leaks)
-    // not normal GC variance. Memory is "stable" if:
-    // 1. Memory is available to measure (performance.memory exists)
-    // 2. Final memory is not excessively larger than baseline
+    // Check memory stability: detect unbounded growth (memory leaks) across runs.
+    // Per SPEC.md:193 - "No memory leaks (stable after repeated runs)"
     //
-    // We compare final to baseline (not consecutive readings) because:
-    // - GC timing is unpredictable, causing wild swings between readings
-    // - Memory often grows during initial terminal setup, then stabilizes
-    // - We care about leaks (unbounded growth), not temporary allocations
+    // We compare the FINAL reading to the POST-WARMUP reading (after first benchmark),
+    // not the pre-test baseline. This is because:
+    // - Initial benchmark causes one-time WASM/terminal buffer allocations
+    // - We care about leaks (unbounded growth), not initial setup allocations
+    // - Memory is "stable" if it doesn't keep growing across subsequent runs
     //
-    // Threshold: 500 MB absolute growth or 5x baseline, whichever is larger
-    // This is very lenient - we only catch egregious leaks, not normal variance
+    // Memory readings array:
+    // [0] = pre-test baseline (before any benchmarks)
+    // [1] = after plain text benchmark (post-warmup baseline)
+    // [2] = after SGR benchmark
+    // [3] = after cursor benchmark
+    // [4] = after extra/leak-detection benchmark
+    //
+    // Threshold: 100 MB absolute growth or 2x post-warmup baseline
+    // This catches real leaks while tolerating normal GC variance
+    const postWarmupBaseline = memoryReadings[1]; // After first benchmark
     const finalReading = memoryReadings[memoryReadings.length - 1];
 
-    if (baselineMemory === 0 || finalReading === 0) {
+    if (postWarmupBaseline === 0 || finalReading === 0) {
       // Can't measure memory - assume stable (can't detect leaks anyway)
       results.memoryStableAfterRuns = true;
     } else {
-      const absoluteGrowth = finalReading - baselineMemory;
-      const relativeGrowth = finalReading / baselineMemory;
+      const absoluteGrowth = finalReading - postWarmupBaseline;
+      const relativeGrowth = finalReading / postWarmupBaseline;
 
-      // Memory is stable if growth is under 500 MB AND under 5x baseline
+      // Memory is stable if growth is under 100 MB AND under 2x post-warmup
       // This catches real leaks while tolerating normal GC variance
-      results.memoryStableAfterRuns = absoluteGrowth < 500 && relativeGrowth < 5;
+      results.memoryStableAfterRuns = absoluteGrowth < 100 && relativeGrowth < 2;
 
       ctx.log(
         `Memory readings: [${memoryReadings.map((m) => m.toFixed(1)).join(", ")}] MB`
       );
       ctx.log(
-        `Memory: baseline=${baselineMemory.toFixed(1)} MB, final=${finalReading.toFixed(1)} MB, growth=${absoluteGrowth.toFixed(1)} MB (${relativeGrowth.toFixed(1)}x)`
+        `Memory: postWarmup=${postWarmupBaseline.toFixed(1)} MB, final=${finalReading.toFixed(1)} MB, growth=${absoluteGrowth.toFixed(1)} MB (${relativeGrowth.toFixed(1)}x)`
       );
     }
 

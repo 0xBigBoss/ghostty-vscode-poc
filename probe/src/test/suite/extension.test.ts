@@ -267,20 +267,14 @@ suite("Ghostty Probe Extension Test Suite", () => {
       `SGR ratio must be <=2x per spec, got ${throughputResults.sgrRatio}x`
     );
 
-    // Memory stability check - warn only, don't fail the test
-    // Rationale: performance.memory measurements are inherently flaky due to:
-    // - Unpredictable GC timing in Chromium
-    // - WASM memory not fully captured by usedJSHeapSize
-    // - Electron's process model affecting heap measurements
-    // The check exists to catch egregious leaks during manual investigation,
-    // not as a reliable automated gate.
-    if (!throughputResults.memoryStableAfterRuns) {
-      console.warn(
-        `[Test] WARNING: Memory appears unstable (peak delta: ${throughputResults.peakMemoryMb} MB). ` +
-          "This may indicate a memory leak, or may be GC timing variance. " +
-          "Investigate if this warning persists across multiple runs."
-      );
-    }
+    // Memory must be stable after repeated runs - per SPEC.md:193
+    // "No memory leaks (stable after repeated runs)"
+    // The probe compares post-warmup memory to final memory (not pre-test baseline)
+    // to avoid false positives from one-time WASM/terminal buffer allocations.
+    assert.ok(
+      throughputResults.memoryStableAfterRuns,
+      `Memory must be stable after repeated runs (no leaks). Peak delta: ${throughputResults.peakMemoryMb} MB`
+    );
 
     console.log("");
     console.log("[Test] OVERALL: GO - All throughput criteria met");

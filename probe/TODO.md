@@ -25,8 +25,8 @@
 ## Notes
 - Following plan at ~/.claude/plans/validated-crunching-pelican.md
 - Working directory: /Users/allen/0xbigboss/ghostty-vscode/probe
-- 10/10 tests pass (memory stability is now a warning, not a hard assertion)
+- 10/10 tests pass (memory stability enforced per SPEC.md:193)
 - probeHtml.ts deleted - no longer used
 - Extension now loads bundled webview from out/webview/
 - Build order: tsc (for type checking) -> esbuild (for bundling)
-- Memory stability check logs a warning due to inherent flakiness of performance.memory in Chromium/WASM environments
+- Memory stability compares post-warmup to final (not pre-test baseline) to avoid false positives from one-time WASM allocations
