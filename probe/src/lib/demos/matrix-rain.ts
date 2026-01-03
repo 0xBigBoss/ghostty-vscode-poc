@@ -180,9 +180,18 @@ export class MatrixRain {
 
   /** Get current metrics */
   getMetrics(): MatrixMetrics {
+    // Calculate real-time metrics to avoid returning 0 before first update
+    const elapsed = (performance.now() - this.startTime) / 1000;
+    const realtimeFps = elapsed > 0 ? Math.round(this.framesRendered / elapsed) : 0;
+    const realtimeMibPerSec =
+      elapsed > 0
+        ? Math.round((this.bytesWritten / (1024 * 1024) / elapsed) * 10) / 10
+        : 0;
+
     return {
-      mibPerSec: this.currentMibPerSec,
-      fps: this.currentFps,
+      // Use cached value if available (updated every second), else compute realtime
+      mibPerSec: this.currentMibPerSec > 0 ? this.currentMibPerSec : realtimeMibPerSec,
+      fps: this.currentFps > 0 ? this.currentFps : realtimeFps,
       charsPerSec: this.currentCharsPerSec,
       framesRendered: this.framesRendered,
     };

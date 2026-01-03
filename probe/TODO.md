@@ -12,6 +12,7 @@
 - [x] Add Matrix demo integration test
 - [x] Fix startMatrixDemo to stop existing instance before starting new one (ISSUE-1)
 - [x] Add getMatrixMetrics command to package.json contributes.commands (ISSUE-2)
+- [x] Fix FPS calculation to use realtime fallback avoiding 0 under throttled rAF (ISSUE-4)
 
 ## In Progress
 
