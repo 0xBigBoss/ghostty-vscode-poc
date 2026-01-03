@@ -23,7 +23,7 @@ export function resolveConfig(partial?: Partial<TerminalConfig>): TerminalConfig
     // Merge env: start with process.env, add Ghostty identification, overlay user overrides
     env: {
       ...process.env,
-      TERM_PROGRAM: 'ghostty',
+      TERM_PROGRAM: 'ghostty_vscode',
       TERM_PROGRAM_VERSION: '0.4.0',  // ghostty-web version
       COLORTERM: 'truecolor',
       ...(partial?.env ?? {}),
