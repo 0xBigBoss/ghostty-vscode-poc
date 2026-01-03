@@ -183,9 +183,10 @@ export class MatrixRain {
     // Calculate real-time metrics to avoid returning 0 before first update
     const elapsed = (performance.now() - this.startTime) / 1000;
     const realtimeFps = elapsed > 0 ? Math.round(this.framesRendered / elapsed) : 0;
+    // Use higher precision (2 decimal places) to avoid rounding to 0 at low throughput
     const realtimeMibPerSec =
       elapsed > 0
-        ? Math.round((this.bytesWritten / (1024 * 1024) / elapsed) * 10) / 10
+        ? Math.round((this.bytesWritten / (1024 * 1024) / elapsed) * 100) / 100
         : 0;
 
     return {

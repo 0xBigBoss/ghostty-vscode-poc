@@ -13,6 +13,7 @@
 - [x] Fix startMatrixDemo to stop existing instance before starting new one (ISSUE-1)
 - [x] Add getMatrixMetrics command to package.json contributes.commands (ISSUE-2)
 - [x] Fix FPS calculation to use realtime fallback avoiding 0 under throttled rAF (ISSUE-4)
+- [x] Fix mibPerSec to use higher precision (2 decimal places) avoiding rounding to 0 (ISSUE-5)
 
 ## In Progress
 
