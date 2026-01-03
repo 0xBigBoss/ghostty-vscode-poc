@@ -1,0 +1,45 @@
+{
+  "terminal": "ghostty",
+  "timestamp": "2026-01-03T18:24:45Z",
+  "system": {
+    "os": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M3 Max",
+    "memory_gb": 128
+  },
+  "results": {
+    "throughput": {
+      "mib_per_sec": 76.92,
+      "duration_ms": 133,
+      "bytes": 10485760,
+      "median_duration_ms": 133,
+      "runs": 3
+    },
+    "scrollback": {
+      "lines_rendered": 1604287,
+      "duration_ms": 5017,
+      "estimated_fps": 320857,
+      "median_duration_ms": 5017,
+      "runs": 3
+    },
+    "colors": {
+      "duration_ms": 933,
+      "lines": 1000,
+      "colors_per_line": 256,
+      "median_duration_ms": 933,
+      "runs": 3
+    },
+    "unicode": {
+      "duration_ms": 10,
+      "lines": 500,
+      "median_duration_ms": 10,
+      "runs": 3
+    },
+    "cursor": {
+      "operations": 1000,
+      "duration_ms": 17,
+      "median_duration_ms": 17,
+      "runs": 3
+    }
+  }
+}

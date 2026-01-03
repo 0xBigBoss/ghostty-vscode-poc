@@ -1,0 +1,45 @@
+{
+  "terminal": "vscode",
+  "timestamp": "2026-01-03T18:21:43Z",
+  "system": {
+    "os": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M3 Max",
+    "memory_gb": 128
+  },
+  "results": {
+    "throughput": {
+      "mib_per_sec": 8.13,
+      "duration_ms": 1233,
+      "bytes": 10485760,
+      "median_duration_ms": 1233,
+      "runs": 3
+    },
+    "scrollback": {
+      "lines_rendered": 227704,
+      "duration_ms": 5021,
+      "estimated_fps": 45540,
+      "median_duration_ms": 5021,
+      "runs": 3
+    },
+    "colors": {
+      "duration_ms": 1068,
+      "lines": 1000,
+      "colors_per_line": 256,
+      "median_duration_ms": 1068,
+      "runs": 3
+    },
+    "unicode": {
+      "duration_ms": 8,
+      "lines": 500,
+      "median_duration_ms": 8,
+      "runs": 3
+    },
+    "cursor": {
+      "operations": 1000,
+      "duration_ms": 15,
+      "median_duration_ms": 15,
+      "runs": 3
+    }
+  }
+}
