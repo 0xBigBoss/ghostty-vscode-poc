@@ -14,6 +14,7 @@ import {
   probeApiCompatibility,
   probeWebglCapabilities,
 } from "../lib/probes";
+import { MatrixRain } from "../lib/demos";
 
 // Declare VS Code API
 declare function acquireVsCodeApi(): {
@@ -47,6 +48,10 @@ const probeResults: ProbeResults = {
 
 // Store terminal instance
 let terminalInstance: ITerminalLike | null = null;
+
+// Matrix demo state
+let matrixRain: MatrixRain | null = null;
+let metricsUpdateInterval: number | null = null;
 
 // Create probe context
 function createContext(): IProbeContext {
@@ -100,6 +105,11 @@ async function runWasmLoadingProbe(): Promise<void> {
 
   // Update terminal instance from context
   terminalInstance = ctx.terminal;
+
+  // Enable matrix demo controls if terminal loaded
+  if (terminalInstance) {
+    enableMatrixControls();
+  }
 
   // Display results
   addResult(section, "Wasm loaded", results.wasmLoadSuccess ? "Yes" : "No", results.wasmLoadSuccess ? "pass" : "fail");
@@ -234,11 +244,129 @@ document.getElementById("runWasmLoading")?.addEventListener("click", async () =>
 
 document.getElementById("runAll")?.addEventListener("click", runAllProbes);
 
-// Message handler
+// --- Matrix Demo Controls ---
+
+const matrixControls = document.getElementById("matrixControls");
+const matrixMetrics = document.getElementById("matrixMetrics");
+const matrixToggle = document.getElementById("matrixToggle");
+const matrixSpeed = document.getElementById("matrixSpeed") as HTMLInputElement | null;
+const speedLabel = document.getElementById("speedLabel");
+
+function updateMatrixMetrics(): void {
+  if (!matrixRain) return;
+
+  const metrics = matrixRain.getMetrics();
+  const mibEl = document.getElementById("metricMiB");
+  const fpsEl = document.getElementById("metricFPS");
+  const charsEl = document.getElementById("metricChars");
+
+  if (mibEl) mibEl.textContent = metrics.mibPerSec.toFixed(1);
+  if (fpsEl) fpsEl.textContent = metrics.fps.toString();
+  if (charsEl) charsEl.textContent = formatNumber(metrics.charsPerSec);
+}
+
+function formatNumber(n: number): string {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+  if (n >= 1000) return (n / 1000).toFixed(1) + "K";
+  return n.toString();
+}
+
+function startMatrixDemo(): void {
+  if (!terminalInstance) {
+    vscode.postMessage({ type: "log", payload: "Cannot start Matrix demo: terminal not initialized" } as ProbeMessage);
+    return;
+  }
+
+  // Create and start the demo
+  const speed = matrixSpeed ? parseInt(matrixSpeed.value, 10) : 5;
+  matrixRain = new MatrixRain(terminalInstance, { speed, density: 0.4 });
+  matrixRain.start();
+
+  // Update UI
+  if (matrixToggle) {
+    matrixToggle.textContent = "Stop Matrix";
+    matrixToggle.classList.add("running");
+  }
+  matrixMetrics?.classList.remove("hidden");
+  terminalContainer.classList.add("matrix-mode");
+
+  // Start metrics update
+  metricsUpdateInterval = window.setInterval(updateMatrixMetrics, 100);
+
+  vscode.postMessage({ type: "log", payload: "Matrix demo started" } as ProbeMessage);
+}
+
+function stopMatrixDemo(): void {
+  if (matrixRain) {
+    matrixRain.stop();
+    matrixRain = null;
+  }
+
+  // Update UI
+  if (matrixToggle) {
+    matrixToggle.textContent = "Start Matrix";
+    matrixToggle.classList.remove("running");
+  }
+  matrixMetrics?.classList.add("hidden");
+  terminalContainer.classList.remove("matrix-mode");
+
+  // Stop metrics update
+  if (metricsUpdateInterval) {
+    clearInterval(metricsUpdateInterval);
+    metricsUpdateInterval = null;
+  }
+
+  vscode.postMessage({ type: "log", payload: "Matrix demo stopped" } as ProbeMessage);
+}
+
+function getMatrixMetrics(): { mibPerSec: number; fps: number; charsPerSec: number; framesRendered: number } | null {
+  if (!matrixRain) return null;
+  return matrixRain.getMetrics();
+}
+
+// Matrix toggle button
+matrixToggle?.addEventListener("click", () => {
+  if (matrixRain?.running) {
+    stopMatrixDemo();
+  } else {
+    startMatrixDemo();
+  }
+});
+
+// Speed slider
+matrixSpeed?.addEventListener("input", () => {
+  const speed = parseInt(matrixSpeed.value, 10);
+  if (speedLabel) speedLabel.textContent = speed.toString();
+  matrixRain?.setSpeed(speed);
+});
+
+// Show matrix controls after wasm loads
+function enableMatrixControls(): void {
+  matrixControls?.classList.remove("hidden");
+}
+
+// Message handler for extension commands
 window.addEventListener("message", (event) => {
   const message = event.data as ExtensionMessage;
-  if ("command" in message && message.command === "runAll") {
-    runAllProbes();
+
+  if ("command" in message) {
+    switch (message.command) {
+      case "runAll":
+        runAllProbes();
+        break;
+      case "startMatrixDemo":
+        startMatrixDemo();
+        break;
+      case "stopMatrixDemo":
+        stopMatrixDemo();
+        break;
+      case "getMatrixMetrics":
+        vscode.postMessage({
+          type: "matrixMetrics",
+          payload: getMatrixMetrics(),
+        });
+        break;
+    }
   }
 });
 

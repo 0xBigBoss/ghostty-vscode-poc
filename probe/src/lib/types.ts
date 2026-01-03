@@ -102,13 +102,24 @@ export type AtlasSamplingResults = {
 // Message Types (Extension <-> Webview)
 // ============================================================================
 
+export type MatrixMetricsPayload = {
+  mibPerSec: number;
+  fps: number;
+  charsPerSec: number;
+  framesRendered: number;
+} | null;
+
 export type ProbeMessage =
   | { type: "probeResults"; payload: ProbeResults }
   | { type: "log"; payload: string }
-  | { type: "integrationTest"; payload: { test: string; timestamp: number } };
+  | { type: "integrationTest"; payload: { test: string; timestamp: number } }
+  | { type: "matrixMetrics"; payload: MatrixMetricsPayload };
 
 export type ExtensionMessage =
   | { command: "runAll" }
+  | { command: "startMatrixDemo" }
+  | { command: "stopMatrixDemo" }
+  | { command: "getMatrixMetrics" }
   | { type: "integrationTestResponse"; payload: { echo: string; timestamp: number } };
 
 // ============================================================================

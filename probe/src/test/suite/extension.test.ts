@@ -324,4 +324,40 @@ suite("Ghostty Probe Extension Test Suite", () => {
     console.log(`  Theme integration: ${integrationResults.themeIntegrationWorks}`);
     console.log(`  Focus management: ${integrationResults.focusManagementWorks}`);
   });
+
+  test("Matrix demo should run without errors", async function () {
+    this.timeout(600000); // 10 minute timeout (includes probe initialization)
+
+    // Run probes first to initialize terminal
+    await vscode.commands.executeCommand("ghostty-probe.runAll");
+    await vscode.commands.executeCommand("ghostty-probe.waitForResults", 540000);
+
+    // Start matrix demo via command
+    await vscode.commands.executeCommand("ghostty-probe.startMatrixDemo");
+
+    // Let it run for 2 seconds
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // Get metrics
+    const metrics = (await vscode.commands.executeCommand(
+      "ghostty-probe.getMatrixMetrics"
+    )) as { fps: number; mibPerSec: number; framesRendered: number } | null;
+
+    // Stop demo
+    await vscode.commands.executeCommand("ghostty-probe.stopMatrixDemo");
+
+    // Verify metrics show activity
+    assert.ok(metrics, "Should receive metrics from Matrix demo");
+    assert.ok(metrics.fps > 0, "Demo should achieve positive FPS");
+    assert.ok(metrics.mibPerSec > 0, "Demo should write data to terminal");
+    assert.ok(
+      metrics.framesRendered > 30,
+      `Demo should render multiple frames in 2s, got ${metrics.framesRendered}`
+    );
+
+    console.log("[Test] Matrix demo results:");
+    console.log(`  FPS: ${metrics.fps}`);
+    console.log(`  Throughput: ${metrics.mibPerSec} MiB/s`);
+    console.log(`  Frames rendered: ${metrics.framesRendered}`);
+  });
 });

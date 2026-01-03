@@ -22,6 +22,14 @@
       {
         "command": "ghostty-probe.showPanel",
         "title": "Ghostty: Show Probe Panel"
+      },
+      {
+        "command": "ghostty-probe.startMatrixDemo",
+        "title": "Ghostty: Start Matrix Demo"
+      },
+      {
+        "command": "ghostty-probe.stopMatrixDemo",
+        "title": "Ghostty: Stop Matrix Demo"
       }
     ]
   },

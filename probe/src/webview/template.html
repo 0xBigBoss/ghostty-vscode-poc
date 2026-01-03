@@ -34,6 +34,30 @@
     <button id="runAll">Run All Probes</button>
   </div>
 
+  <div id="matrixControls" class="matrix-controls hidden">
+    <button id="matrixToggle" class="matrix-btn">Start Matrix</button>
+    <div class="speed-control">
+      <label for="matrixSpeed">Speed:</label>
+      <input type="range" id="matrixSpeed" min="1" max="10" value="5">
+      <span id="speedLabel">5</span>
+    </div>
+  </div>
+
+  <div id="matrixMetrics" class="matrix-metrics hidden">
+    <span class="metric">
+      <span class="value" id="metricMiB">0.0</span>
+      <span class="unit">MiB/s</span>
+    </span>
+    <span class="metric">
+      <span class="value" id="metricFPS">0</span>
+      <span class="unit">FPS</span>
+    </span>
+    <span class="metric">
+      <span class="value" id="metricChars">0</span>
+      <span class="unit">chars/sec</span>
+    </span>
+  </div>
+
   <div id="terminalContainer"></div>
   <div id="benchmarkIndicator" class="benchmark-indicator">BENCHMARK RUNNING - Terminal painting below</div>
   <canvas id="glCanvas" width="800" height="600"></canvas>

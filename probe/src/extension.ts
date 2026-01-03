@@ -7,6 +7,16 @@ let probePanel: vscode.WebviewPanel | undefined;
 let lastProbeResults: ProbeResults | undefined;
 let probeResultsPromiseResolve: ((results: ProbeResults) => void) | undefined;
 
+// Matrix demo state
+interface MatrixMetrics {
+  mibPerSec: number;
+  fps: number;
+  charsPerSec: number;
+  framesRendered: number;
+}
+let lastMatrixMetrics: MatrixMetrics | null = null;
+let matrixMetricsPromiseResolve: ((metrics: MatrixMetrics | null) => void) | undefined;
+
 export function activate(context: vscode.ExtensionContext): void {
   const showPanelCommand = vscode.commands.registerCommand(
     "ghostty-probe.showPanel",
@@ -16,6 +26,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const runAllCommand = vscode.commands.registerCommand(
     "ghostty-probe.runAll",
     () => {
+      // Clear previous results so waitForResults blocks until new results arrive
+      lastProbeResults = undefined;
       showProbePanel(context);
       probePanel?.webview.postMessage({ command: "runAll" });
     }
@@ -50,11 +62,54 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   );
 
+  // Matrix demo commands
+  const startMatrixDemoCommand = vscode.commands.registerCommand(
+    "ghostty-probe.startMatrixDemo",
+    () => {
+      if (!probePanel) {
+        showProbePanel(context);
+      }
+      probePanel?.webview.postMessage({ command: "startMatrixDemo" });
+    }
+  );
+
+  const stopMatrixDemoCommand = vscode.commands.registerCommand(
+    "ghostty-probe.stopMatrixDemo",
+    () => {
+      probePanel?.webview.postMessage({ command: "stopMatrixDemo" });
+    }
+  );
+
+  const getMatrixMetricsCommand = vscode.commands.registerCommand(
+    "ghostty-probe.getMatrixMetrics",
+    (timeoutMs: number = 5000) => {
+      return new Promise<MatrixMetrics | null>((resolve, _reject) => {
+        // Request metrics from webview
+        probePanel?.webview.postMessage({ command: "getMatrixMetrics" });
+
+        // Set up resolver for when metrics come in
+        matrixMetricsPromiseResolve = resolve;
+
+        // Timeout
+        setTimeout(() => {
+          if (matrixMetricsPromiseResolve === resolve) {
+            matrixMetricsPromiseResolve = undefined;
+            // Return last known metrics or null
+            resolve(lastMatrixMetrics);
+          }
+        }, timeoutMs);
+      });
+    }
+  );
+
   context.subscriptions.push(
     showPanelCommand,
     runAllCommand,
     getResultsCommand,
-    waitForResultsCommand
+    waitForResultsCommand,
+    startMatrixDemoCommand,
+    stopMatrixDemoCommand,
+    getMatrixMetricsCommand
   );
 }
 
@@ -181,6 +236,16 @@ async function handleProbeMessage(
         type: "integrationTestResponse",
         payload: { echo: message.payload.test, timestamp: message.payload.timestamp },
       });
+      break;
+    }
+    case "matrixMetrics": {
+      // Store metrics
+      lastMatrixMetrics = message.payload;
+      // Resolve any waiting promises
+      if (matrixMetricsPromiseResolve) {
+        matrixMetricsPromiseResolve(message.payload);
+        matrixMetricsPromiseResolve = undefined;
+      }
       break;
     }
     default: {
