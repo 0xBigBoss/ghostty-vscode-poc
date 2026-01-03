@@ -30,7 +30,9 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(manager);  // Auto-dispose on deactivate
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('ghostty.newTerminal', () => manager!.createTerminal()),
+    vscode.commands.registerCommand('ghostty.newTerminal', () =>
+      manager!.createTerminal({ cwd: resolveCwd() })
+    ),
     vscode.commands.registerCommand('ghostty.newTerminalHere', (uri?: vscode.Uri) =>
       manager!.createTerminal({ cwd: resolveCwd(uri) })
     )
