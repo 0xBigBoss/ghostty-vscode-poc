@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src {{cspSource}} 'unsafe-inline' 'wasm-unsafe-eval'; style-src {{cspSource}} 'unsafe-inline'; img-src {{cspSource}} data:; font-src {{cspSource}}; connect-src {{cspSource}};">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ghostty Probe</title>
+  <link rel="stylesheet" href="{{stylesUri}}">
+</head>
+<body data-wasm-url="{{wasmUri}}">
+  <div class="header-container">
+    <div class="ascii-header">
+   ██████╗ ██╗  ██╗ ██████╗ ███████╗████████╗████████╗██╗   ██╗
+  ██╔════╝ ██║  ██║██╔═══██╗██╔════╝╚══██╔══╝╚══██╔══╝╚██╗ ██╔╝
+  ██║  ███╗███████║██║   ██║███████╗   ██║      ██║    ╚████╔╝
+  ██║   ██║██╔══██║██║   ██║╚════██║   ██║      ██║     ╚██╔╝
+  ╚██████╔╝██║  ██║╚██████╔╝███████║   ██║      ██║      ██║
+   ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝   ╚═╝      ╚═╝      ╚═╝
+           ██╗    ██╗███████╗██████╗       ██████╗ ██████╗  ██████╗ ██████╗ ███████╗
+           ██║    ██║██╔════╝██╔══██╗      ██╔══██╗██╔══██╗██╔═══██╗██╔══██╗██╔════╝
+           ██║ █╗ ██║█████╗  ██████╔╝█████╗██████╔╝██████╔╝██║   ██║██████╔╝█████╗
+           ██║███╗██║██╔══╝  ██╔══██╗╚════╝██╔═══╝ ██╔══██╗██║   ██║██╔══██╗██╔══╝
+           ╚███╔███╔╝███████╗██████╔╝      ██║     ██║  ██║╚██████╔╝██████╔╝███████╗
+            ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝
+    </div>
+    <div class="header-text">
+      <h1>Feasibility Probe <span class="badge badge-experiment">EXPERIMENT</span></h1>
+      <p class="header-subtitle">Can ghostty-web replace xterm.js in VS Code?</p>
+    </div>
+  </div>
+
+  <div class="button-group">
+    <button id="runWasmLoading">Test Wasm Loading</button>
+    <button id="runAll">Run All Probes</button>
+  </div>
+
+  <div id="terminalContainer"></div>
+  <div id="benchmarkIndicator" class="benchmark-indicator">BENCHMARK RUNNING - Terminal painting below</div>
+  <canvas id="glCanvas" width="800" height="600"></canvas>
+
+  <div id="results"></div>
+
+  <script src="{{ghosttyWebJsUri}}"></script>
+  <script src="{{mainJsUri}}"></script>
+</body>
+</html>

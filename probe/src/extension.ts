@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
-import { getProbeHtml } from "./webview/probeHtml";
 import * as path from "path";
+import * as fs from "fs";
 import type { ProbeResults, ProbeMessage } from "./lib/types";
 
 let probePanel: vscode.WebviewPanel | undefined;
@@ -64,13 +64,14 @@ function showProbePanel(context: vscode.ExtensionContext): void {
     return;
   }
 
-  // Get the path to ghostty-web in node_modules
+  // Get paths to resources
   const ghosttyWebPath = path.join(
     context.extensionPath,
     "node_modules",
     "ghostty-web",
     "dist"
   );
+  const webviewPath = path.join(context.extensionPath, "out", "webview");
 
   probePanel = vscode.window.createWebviewPanel(
     "ghosttyProbe",
@@ -81,24 +82,39 @@ function showProbePanel(context: vscode.ExtensionContext): void {
       retainContextWhenHidden: true,
       localResourceRoots: [
         vscode.Uri.file(ghosttyWebPath),
+        vscode.Uri.file(webviewPath),
         vscode.Uri.file(path.join(context.extensionPath, "node_modules")),
       ],
     }
   );
 
-  // Create URIs for ghostty-web files
+  // Create URIs for resources
   const ghosttyWebJsUri = probePanel.webview.asWebviewUri(
     vscode.Uri.file(path.join(ghosttyWebPath, "ghostty-web.umd.cjs"))
   );
   const ghosttyWasmUri = probePanel.webview.asWebviewUri(
     vscode.Uri.file(path.join(ghosttyWebPath, "ghostty-vt.wasm"))
   );
-
-  probePanel.webview.html = getProbeHtml(
-    ghosttyWebJsUri.toString(),
-    ghosttyWasmUri.toString(),
-    probePanel.webview.cspSource
+  const mainJsUri = probePanel.webview.asWebviewUri(
+    vscode.Uri.file(path.join(webviewPath, "main.js"))
   );
+  const stylesUri = probePanel.webview.asWebviewUri(
+    vscode.Uri.file(path.join(webviewPath, "styles.css"))
+  );
+
+  // Load and process HTML template
+  const templatePath = path.join(webviewPath, "template.html");
+  let html = fs.readFileSync(templatePath, "utf8");
+
+  // Replace template placeholders
+  html = html
+    .replace(/\{\{cspSource\}\}/g, probePanel.webview.cspSource)
+    .replace(/\{\{ghosttyWebJsUri\}\}/g, ghosttyWebJsUri.toString())
+    .replace(/\{\{mainJsUri\}\}/g, mainJsUri.toString())
+    .replace(/\{\{stylesUri\}\}/g, stylesUri.toString())
+    .replace(/\{\{wasmUri\}\}/g, ghosttyWasmUri.toString());
+
+  probePanel.webview.html = html;
 
   probePanel.webview.onDidReceiveMessage(
     (message: ProbeMessage) => handleProbeMessage(message, context),

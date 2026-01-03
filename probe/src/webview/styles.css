@@ -1,0 +1,280 @@
+:root {
+  --ghost-purple: #a855f7;
+  --ghost-pink: #ec4899;
+  --ghost-blue: #3b82f6;
+  --ghost-green: #22c55e;
+  --ghost-yellow: #eab308;
+  --ghost-red: #ef4444;
+}
+
+body {
+  font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', var(--vscode-editor-font-family), monospace;
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+  padding: 20px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.ascii-header {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 10px;
+  line-height: 1.1;
+  color: var(--ghost-purple);
+  white-space: pre;
+  margin-bottom: 8px;
+  text-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+}
+
+.header-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.header-text {
+  flex: 1;
+}
+
+.header-text h1 {
+  font-size: 1.5em;
+  margin: 0 0 4px 0;
+  background: linear-gradient(90deg, var(--ghost-purple), var(--ghost-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-subtitle {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+  margin: 0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75em;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+.badge-experiment {
+  background: rgba(234, 179, 8, 0.2);
+  color: var(--ghost-yellow);
+  border: 1px solid var(--ghost-yellow);
+}
+
+h2 {
+  font-size: 1em;
+  margin: 20px 0 12px;
+  padding: 8px 12px;
+  background: rgba(168, 85, 247, 0.1);
+  border-left: 3px solid var(--ghost-purple);
+  border-radius: 0 8px 8px 0;
+}
+
+.button-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+button {
+  background: linear-gradient(135deg, var(--ghost-purple) 0%, var(--ghost-blue) 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  border-radius: 8px;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 0.9em;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.3);
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.status { margin: 8px 0; }
+.pass { color: var(--ghost-green); }
+.fail { color: var(--ghost-red); }
+.warn { color: var(--ghost-yellow); }
+
+.metric-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--vscode-textCodeBlock-background);
+  border-radius: 8px;
+  margin: 4px;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.metric-value {
+  font-size: 1.4em;
+  font-weight: 700;
+}
+
+.metric-label {
+  font-size: 0.8em;
+  color: var(--vscode-descriptionForeground);
+}
+
+pre {
+  background: var(--vscode-textCodeBlock-background);
+  padding: 12px;
+  overflow-x: auto;
+  font-size: 0.85em;
+  border-radius: 8px;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+canvas { display: none; }
+
+#terminalContainer {
+  width: 100%;
+  height: 300px;
+  background: #0d0d0d;
+  margin: 12px 0;
+  display: none;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--vscode-panel-border);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+#terminalContainer.visible {
+  display: block;
+}
+
+#results { margin-top: 20px; }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+th, td {
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--vscode-panel-border);
+}
+
+th {
+  background: rgba(168, 85, 247, 0.15);
+  font-weight: 600;
+}
+
+tr:hover td {
+  background: rgba(168, 85, 247, 0.05);
+}
+
+.throughput-bar {
+  height: 20px;
+  border-radius: 4px;
+  background: var(--vscode-textCodeBlock-background);
+  overflow: hidden;
+  margin: 4px 0;
+}
+
+.throughput-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.throughput-fill.low { background: linear-gradient(90deg, var(--ghost-red), var(--ghost-yellow)); }
+.throughput-fill.medium { background: linear-gradient(90deg, var(--ghost-yellow), var(--ghost-green)); }
+.throughput-fill.high { background: linear-gradient(90deg, var(--ghost-green), var(--ghost-blue)); }
+
+.go-nogo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.9em;
+}
+
+.go-nogo.go {
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--ghost-green);
+  border: 1px solid var(--ghost-green);
+}
+
+.go-nogo.nogo {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--ghost-red);
+  border: 1px solid var(--ghost-red);
+}
+
+.footer-note {
+  margin-top: 24px;
+  padding: 12px;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 8px;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground);
+  border-left: 3px solid var(--ghost-blue);
+}
+
+/* Matrix effect indicator - CSS animation that runs during benchmarks */
+@keyframes matrix-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(34, 197, 94, 0.3), inset 0 0 20px rgba(34, 197, 94, 0.1); }
+  50% { box-shadow: 0 0 25px rgba(34, 197, 94, 0.6), inset 0 0 40px rgba(34, 197, 94, 0.2); }
+}
+
+@keyframes matrix-border {
+  0% { border-color: rgba(34, 197, 94, 0.3); }
+  50% { border-color: rgba(34, 197, 94, 0.8); }
+  100% { border-color: rgba(34, 197, 94, 0.3); }
+}
+
+#terminalContainer.benchmark-running {
+  animation: matrix-glow 0.5s ease-in-out infinite, matrix-border 0.5s ease-in-out infinite;
+  border: 2px solid var(--ghost-green);
+}
+
+.benchmark-indicator {
+  display: none;
+  padding: 8px 16px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid var(--ghost-green);
+  border-radius: 6px;
+  color: var(--ghost-green);
+  font-weight: 600;
+  margin: 8px 0;
+  animation: matrix-glow 0.5s ease-in-out infinite;
+}
+
+.benchmark-indicator.visible {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.benchmark-indicator::before {
+  content: '▶';
+  animation: matrix-border 0.3s ease-in-out infinite;
+}

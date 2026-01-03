@@ -65,6 +65,7 @@ export interface ITerminalLike {
 
   // Input
   readonly onData: IEvent<string>;
+  readonly onBinary?: IEvent<string>;
   input(data: string, wasUserInput?: boolean): void;
   paste(data: string): void;
 
@@ -91,6 +92,17 @@ export interface ITerminalLike {
 
   // Addons (optional)
   loadAddon?(addon: unknown): void;
+
+  // Additional xterm.js APIs (optional - for API compatibility probe)
+  readonly options?: unknown;
+  readonly onBell?: IEvent<void>;
+  readonly onKey?: IEvent<{ key: string; domEvent: KeyboardEvent }>;
+  readonly onTitleChange?: IEvent<string>;
+  readonly onScroll?: IEvent<number>;
+  scrollLines?(amount: number): void;
+  scrollPages?(pageCount: number): void;
+  scrollToTop?(): void;
+  scrollToBottom?(): void;
 }
 
 /**
@@ -108,7 +120,20 @@ export interface IProbeContext {
   getMemory: () => number;
 
   /** Update UI with probe results (implementation varies by platform) */
-  addResult?: (section: string, label: string, value: string, status: "pass" | "fail" | "warn") => void;
+  addResult?: (
+    section: string,
+    label: string,
+    value: string,
+    status: "pass" | "fail" | "warn"
+  ) => void;
+}
+
+/**
+ * FitAddon interface
+ */
+export interface IFitAddon {
+  fit(): void;
+  proposeDimensions(): { cols: number; rows: number } | undefined;
 }
 
 /**
@@ -116,6 +141,18 @@ export interface IProbeContext {
  * Used for wasm loading probe.
  */
 export interface IGhosttyModule {
-  load(wasmUrl: string): Promise<void>;
-  Terminal: new (options?: Record<string, unknown>) => ITerminalLike;
+  Terminal?: new (options?: Record<string, unknown>) => ITerminalLike;
+  FitAddon?: new () => IFitAddon;
+  Ghostty?: {
+    load(wasmUrl: string): Promise<unknown>;
+  };
+  init?: () => Promise<void>;
+  default?: {
+    Terminal?: new (options?: Record<string, unknown>) => ITerminalLike;
+    FitAddon?: new () => IFitAddon;
+    Ghostty?: {
+      load(wasmUrl: string): Promise<unknown>;
+    };
+    init?: () => Promise<void>;
+  };
 }

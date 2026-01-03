@@ -1,9 +1,13 @@
 /**
- * Probe module exports.
- *
- * Note: Currently the probes are still embedded in the webview HTML template.
- * This module provides the type definitions and will be expanded as probes
- * are extracted into standalone functions.
+ * Probe modules index.
+ * Re-exports all probe implementations.
  */
 
 export * from "./types";
+export { probeWasmLoading } from "./wasm-loading";
+export { probeRendering } from "./rendering";
+export { probeInputHandling } from "./input-handling";
+export { probeThroughput } from "./throughput";
+export { probeVsCodeIntegration } from "./vscode-integration";
+export { probeApiCompatibility } from "./api-compatibility";
+export { probeWebglCapabilities } from "./webgl-capabilities";
