@@ -40,6 +40,9 @@ export class TerminalManager implements vscode.Disposable {
           case 'terminal-resize':
             this.handleTerminalResize(message.terminalId, message.cols, message.rows);
             break;
+          case 'open-url':
+            this.handleOpenUrl(message.url);
+            break;
         }
       },
       undefined,
@@ -118,6 +121,46 @@ export class TerminalManager implements vscode.Disposable {
   private handleTerminalResize(id: TerminalId, cols: number, rows: number): void {
     // Webview detected resize, propagate to PTY
     this.ptyService.resize(id, cols, rows);
+  }
+
+  // Allowed URL schemes for external opening (security: prevent command injection)
+  private static readonly ALLOWED_URL_SCHEMES = new Set([
+    'http',
+    'https',
+    'mailto',
+    'ftp',
+    'ssh',
+    'git',
+    'tel',
+  ]);
+
+  private handleOpenUrl(url: string): void {
+    // Parse and validate URL before opening
+    let uri: vscode.Uri;
+    try {
+      uri = vscode.Uri.parse(url, true); // strict mode
+    } catch {
+      console.warn(`[ghostty-terminal] Invalid URL: ${url}`);
+      return;
+    }
+
+    // Security: only allow safe schemes (prevent command:, vscode:, file: etc.)
+    if (!TerminalManager.ALLOWED_URL_SCHEMES.has(uri.scheme)) {
+      console.warn(`[ghostty-terminal] Blocked URL with disallowed scheme: ${uri.scheme}`);
+      return;
+    }
+
+    // Open URL externally using VS Code's API (works in webviews)
+    vscode.env.openExternal(uri).then(
+      (success) => {
+        if (!success) {
+          console.warn(`[ghostty-terminal] Failed to open URL: ${url}`);
+        }
+      },
+      (error) => {
+        console.error(`[ghostty-terminal] Error opening URL: ${error}`);
+      }
+    );
   }
 
   private handlePtyExit(id: TerminalId, exitCode: number): void {

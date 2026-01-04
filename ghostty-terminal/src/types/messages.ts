@@ -10,4 +10,5 @@ export type ExtensionMessage =
 export type WebviewMessage =
   | { type: 'terminal-input'; terminalId: TerminalId; data: string }
   | { type: 'terminal-resize'; terminalId: TerminalId; cols: number; rows: number }
-  | { type: 'terminal-ready'; terminalId: TerminalId; cols: number; rows: number };
+  | { type: 'terminal-ready'; terminalId: TerminalId; cols: number; rows: number }
+  | { type: 'open-url'; terminalId: TerminalId; url: string };

@@ -45,7 +45,24 @@ const vscode = acquireVsCodeApi();
     throw new Error('ghostty-web Terminal not found');
   }
 
-  const termOptions: { cols: number; rows: number; ghostty?: unknown } = { cols: 80, rows: 24 };
+  const termOptions: {
+    cols: number;
+    rows: number;
+    ghostty?: unknown;
+    onLinkClick?: (url: string, event: MouseEvent) => boolean;
+  } = {
+    cols: 80,
+    rows: 24,
+    // Handle link clicks by posting message to extension (window.open doesn't work in webviews)
+    onLinkClick: (url: string, event: MouseEvent) => {
+      // Only open links when Ctrl/Cmd is held (standard terminal behavior)
+      if (event.ctrlKey || event.metaKey) {
+        vscode.postMessage({ type: 'open-url', terminalId: TERMINAL_ID, url });
+        return true; // Handled
+      }
+      return false; // Not handled
+    },
+  };
   if (ghosttyInstance) {
     termOptions.ghostty = ghosttyInstance;
   }
