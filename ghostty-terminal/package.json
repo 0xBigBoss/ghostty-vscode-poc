@@ -43,7 +43,7 @@
     "postinstall": "node-pty-prebuilt-multiarch || true"
   },
   "dependencies": {
-    "ghostty-web": "0.4.0",
+    "ghostty-web": "file:../ghostty-web",
     "node-pty": "^1.0.0"
   },
   "devDependencies": {
