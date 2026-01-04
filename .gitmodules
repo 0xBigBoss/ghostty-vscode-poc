@@ -3,4 +3,4 @@
 	url = https://github.com/ghostty-org/ghostty.git
 [submodule "ghostty-web"]
 	path = ghostty-web
-	url = https://github.com/coder/ghostty-web.git
+	url = https://github.com/0xBigBoss/ghostty-web.git
