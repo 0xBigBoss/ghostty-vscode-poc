@@ -449,17 +449,34 @@ interface WebviewState {
     const match = searchMatches[currentMatchIndex];
     // Use terminal's select API to highlight the match
     // Need to scroll to the match row and select
-    const scrollbackLength = term.buffer?.active?.length || 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const buffer = (term as any).buffer;
+    const scrollbackLength = buffer?.active?.length || 0;
     const viewportRows = term.rows;
 
-    // Calculate viewport position to show the match
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const scrollToRow = Math.max(0, match.row - Math.floor(viewportRows / 2));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (term as any).scrollToLine?.(scrollToRow);
+    // Calculate scroll position to center the match in viewport
+    // In ghostty-web: viewportY = 0 at bottom, viewportY = scrollbackLength at top
+    // Buffer row `r` is visible when: r = scrollbackLength - viewportY + viewportRow
+    // So to show buffer row `match.row` at center of viewport:
+    // match.row = scrollbackLength - viewportY + (viewportRows / 2)
+    // viewportY = scrollbackLength - match.row + (viewportRows / 2)
+    const targetViewportY = Math.max(0, Math.min(
+      scrollbackLength,
+      scrollbackLength - match.row + Math.floor(viewportRows / 2)
+    ));
 
-    // Select the match (row is in absolute buffer coordinates)
-    term.select?.(match.startCol, match.row, match.endCol - match.startCol + 1);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (term as any).scrollToLine?.(targetViewportY);
+
+    // After scrolling, convert absolute buffer row to viewport-relative row
+    // viewportRow = match.row - scrollbackLength + viewportY
+    // Since we just set viewportY = targetViewportY:
+    const viewportRelativeRow = match.row - scrollbackLength + targetViewportY;
+
+    // Only select if the row is within viewport bounds
+    if (viewportRelativeRow >= 0 && viewportRelativeRow < viewportRows) {
+      term.select?.(match.startCol, viewportRelativeRow, match.endCol - match.startCol + 1);
+    }
 
     updateSearchUI();
   }
