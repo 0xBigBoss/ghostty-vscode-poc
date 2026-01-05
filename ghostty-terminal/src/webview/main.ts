@@ -2,6 +2,21 @@
 import type { TerminalId } from '../types/terminal';
 import type { ExtensionMessage, TerminalTheme } from '../types/messages';
 
+// Import extracted utilities for testability (bundled by esbuild)
+import {
+  createFileCache,
+  isAbsolutePath,
+  stripGitDiffPrefix,
+  resolvePath as resolvePathUtil,
+  quoteShellPath,
+  isWindowsPlatform,
+} from '../file-cache';
+import {
+  isMacPlatform,
+  isSearchShortcut,
+  getKeyHandlerResult,
+} from '../keybinding-utils';
+
 // Declare VS Code API (provided by webview host)
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void;
@@ -34,31 +49,12 @@ interface WebviewState {
   const pendingFileChecks = new Map<string, (exists: boolean) => void>();
   let requestIdCounter = 0;
 
-  // File existence cache with TTL (avoids repeated round-trips to extension)
-  const FILE_CACHE_TTL_MS = 5000; // 5 second TTL
-  const FILE_CACHE_MAX_SIZE = 100; // Max entries to prevent memory bloat
-  const fileExistsCache = new Map<string, { exists: boolean; timestamp: number }>();
+  // File existence cache with TTL (uses extracted utility for testability)
+  const fileCache = createFileCache(5000, 100); // 5s TTL, max 100 entries
 
-  function getCachedFileExists(path: string): boolean | undefined {
-    const entry = fileExistsCache.get(path);
-    if (!entry) return undefined;
-    // Check if entry is expired
-    if (Date.now() - entry.timestamp > FILE_CACHE_TTL_MS) {
-      fileExistsCache.delete(path);
-      return undefined;
-    }
-    return entry.exists;
-  }
-
-  function setCachedFileExists(path: string, exists: boolean): void {
-    // Evict oldest entries if cache is full (simple LRU approximation)
-    if (fileExistsCache.size >= FILE_CACHE_MAX_SIZE) {
-      // Delete first (oldest) entry
-      const firstKey = fileExistsCache.keys().next().value;
-      if (firstKey) fileExistsCache.delete(firstKey);
-    }
-    fileExistsCache.set(path, { exists, timestamp: Date.now() });
-  }
+  // Platform detection (cached at startup)
+  const IS_MAC = isMacPlatform(navigator);
+  const IS_WINDOWS = isWindowsPlatform(navigator);
 
   // Initialize ghostty-web wasm (matching probe pattern)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -93,8 +89,8 @@ interface WebviewState {
 
   // Check if a file exists via extension (with caching)
   function checkFileExists(path: string): Promise<boolean> {
-    // Check cache first
-    const cached = getCachedFileExists(path);
+    // Check cache first (uses extracted utility)
+    const cached = fileCache.get(path);
     if (cached !== undefined) {
       return Promise.resolve(cached);
     }
@@ -103,7 +99,7 @@ interface WebviewState {
       const requestId = `req-${requestIdCounter++}`;
       pendingFileChecks.set(requestId, (exists: boolean) => {
         // Cache the result
-        setCachedFileExists(path, exists);
+        fileCache.set(path, exists);
         resolve(exists);
       });
       vscode.postMessage({
@@ -117,28 +113,16 @@ interface WebviewState {
         if (pendingFileChecks.has(requestId)) {
           pendingFileChecks.delete(requestId);
           // Cache negative result on timeout
-          setCachedFileExists(path, false);
+          fileCache.set(path, false);
           resolve(false);
         }
       }, 2000);
     });
   }
 
-  // Resolve path relative to CWD
+  // Resolve path relative to CWD (uses extracted utility)
   function resolvePath(path: string): string {
-    // Already absolute
-    if (path.startsWith('/') || /^[a-zA-Z]:/.test(path)) {
-      return path;
-    }
-    // Strip git diff prefixes
-    if (path.startsWith('a/') || path.startsWith('b/')) {
-      path = path.slice(2);
-    }
-    // Resolve relative to CWD
-    if (currentCwd) {
-      return currentCwd + '/' + path;
-    }
-    return path;
+    return resolvePathUtil(path, currentCwd);
   }
 
   // Handle file link click
@@ -536,55 +520,17 @@ interface WebviewState {
   searchCloseBtn.addEventListener('click', hideSearch);
 
   // Keybinding passthrough: let VS Code handle Cmd/Ctrl combos
-  // Returns: true = handler consumed (preventDefault, no terminal processing)
-  //          false = bubble to VS Code (no preventDefault, no terminal processing)
-  //          undefined = default terminal processing
+  // Uses extracted utilities for testability
   term.attachCustomKeyEventHandler((event: KeyboardEvent): boolean | undefined => {
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-
-    // Intercept Cmd+F / Ctrl+F for search
-    if ((isMac && event.metaKey && event.key === 'f') ||
-        (!isMac && event.ctrlKey && event.key === 'f')) {
+    // Intercept Cmd+F / Ctrl+F for search (uses extracted utility)
+    if (isSearchShortcut(event, IS_MAC)) {
       event.preventDefault();
       showSearch();
       return true; // We handled it
     }
 
-    // On Mac: Cmd is the VS Code modifier, Ctrl sends terminal control sequences
-    // On Windows/Linux: Ctrl+Shift is VS Code, Ctrl alone is terminal control
-    if (isMac) {
-      // Cmd combos bubble to VS Code (Cmd+P, Cmd+Shift+P, etc.)
-      if (event.metaKey) {
-        return false;
-      }
-      // Ctrl+letter on Mac: let terminal process as control sequences (Ctrl+C→^C, etc.)
-      // Return undefined to let InputHandler process normally
-      if (event.ctrlKey && !event.altKey && event.key.length === 1 && /[a-zA-Z]/.test(event.key)) {
-        return undefined;
-      }
-    } else {
-      // Windows/Linux: Ctrl serves dual purpose
-      if (event.ctrlKey) {
-        // Ctrl+Shift combos: bubble to VS Code (Ctrl+Shift+P, etc.)
-        if (event.shiftKey) {
-          return false;
-        }
-        // Ctrl+C with selection: bubble to let browser handle copy
-        if (event.key === 'c' && term.hasSelection?.()) {
-          return false;
-        }
-        // Terminal control sequences: Ctrl+C (no selection), Ctrl+D, Ctrl+Z, Ctrl+L, etc.
-        // Return undefined to let InputHandler process normally
-        if (!event.altKey && event.key.length === 1 && /[a-zA-Z]/.test(event.key)) {
-          return undefined;
-        }
-        // Other Ctrl combos (Ctrl+Tab, Ctrl+numbers, etc.): bubble to VS Code
-        return false;
-      }
-    }
-
-    // Default terminal processing for everything else
-    return undefined;
+    // Delegate to extracted utility for consistent keybinding logic
+    return getKeyHandlerResult(event, IS_MAC, term.hasSelection?.() ?? false);
   });
 
   // Register message listener BEFORE posting terminal-ready
@@ -770,7 +716,8 @@ interface WebviewState {
     const files = e.dataTransfer?.files;
     if (!files || files.length === 0) return;
 
-    // Build paths string (space-separated, quoted if contains spaces)
+    // Build paths string (space-separated, quoted for shell)
+    // Uses extracted utility with platform-aware quoting
     const paths: string[] = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -778,12 +725,8 @@ interface WebviewState {
       // Note: This is a VS Code-specific extension to the File API
       const path = (file as File & { path?: string }).path;
       if (path) {
-        // Quote path if it contains spaces or special shell characters
-        if (/[\s"'$`\\!&;|<>()]/.test(path)) {
-          paths.push(`'${path.replace(/'/g, "'\\''")}'`);
-        } else {
-          paths.push(path);
-        }
+        // Use platform-aware quoting (POSIX vs Windows)
+        paths.push(quoteShellPath(path, IS_WINDOWS));
       }
     }
 

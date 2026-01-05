@@ -33,12 +33,20 @@ export function createFileCache(ttlMs: number = 5000, maxSize: number = 100): Fi
         cache.delete(path);
         return undefined;
       }
+
+      // LRU: move to end on access (delete and re-add to refresh position)
+      cache.delete(path);
+      cache.set(path, entry);
+
       return entry.exists;
     },
 
     set(path: string, exists: boolean): void {
-      // Evict oldest entry if cache is full (simple LRU approximation)
-      if (cache.size >= maxSize) {
+      // LRU: if key exists, delete first to refresh position (avoids evicting unrelated keys)
+      if (cache.has(path)) {
+        cache.delete(path);
+      } else if (cache.size >= maxSize) {
+        // Only evict if adding new key and at capacity
         const firstKey = cache.keys().next().value;
         if (firstKey) cache.delete(firstKey);
       }
@@ -95,10 +103,28 @@ export function resolvePath(path: string, cwd?: string): string {
 }
 
 /**
- * Quote a shell path if it contains special characters
+ * Detect if running on Windows
  */
-export function quoteShellPath(path: string): string {
-  // Quote path if it contains spaces or special shell characters
+export function isWindowsPlatform(navigator: { platform: string }): boolean {
+  // Match Win32, Win64, Windows - but not darwin which contains 'win'
+  const platform = navigator.platform.toUpperCase();
+  return platform.startsWith('WIN');
+}
+
+/**
+ * Quote a shell path if it contains special characters
+ * Uses POSIX single-quoting for Unix shells, double-quoting for Windows cmd.exe
+ */
+export function quoteShellPath(path: string, isWindows: boolean = false): string {
+  if (isWindows) {
+    // Windows cmd.exe: use double quotes, escape internal double quotes with ^
+    // Backslashes are literal in cmd.exe (not escape chars)
+    if (/[\s"&|<>()^]/.test(path)) {
+      return `"${path.replace(/"/g, '^"')}"`;
+    }
+    return path;
+  }
+  // POSIX shells: use single quotes, escape internal single quotes
   if (/[\s"'$`\\!&;|<>()]/.test(path)) {
     return `'${path.replace(/'/g, "'\\''")}'`;
   }
