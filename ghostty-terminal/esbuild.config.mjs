@@ -62,16 +62,30 @@ async function build() {
     const stylesSrc = path.join(process.cwd(), "src/webview/styles.css");
     const outWebview = path.join(process.cwd(), "out/webview");
 
-    if (!fs.existsSync(outWebview)) {
-      fs.mkdirSync(outWebview, { recursive: true });
+    function copyStaticFiles() {
+      if (!fs.existsSync(outWebview)) {
+        fs.mkdirSync(outWebview, { recursive: true });
+      }
+      if (fs.existsSync(templateSrc)) {
+        fs.copyFileSync(templateSrc, path.join(outWebview, "template.html"));
+      }
+      if (fs.existsSync(stylesSrc)) {
+        fs.copyFileSync(stylesSrc, path.join(outWebview, "styles.css"));
+      }
     }
-    if (fs.existsSync(templateSrc)) {
-      fs.copyFileSync(templateSrc, path.join(outWebview, "template.html"));
-    }
-    if (fs.existsSync(stylesSrc)) {
-      fs.copyFileSync(stylesSrc, path.join(outWebview, "styles.css"));
-    }
+
+    copyStaticFiles();
     console.log("[esbuild] Static files copied.");
+
+    // Watch static files in dev mode
+    if (isWatch) {
+      fs.watch(path.dirname(templateSrc), (eventType, filename) => {
+        if (filename === "template.html" || filename === "styles.css") {
+          copyStaticFiles();
+          console.log(`[esbuild] Static file ${filename} updated.`);
+        }
+      });
+    }
   } catch (error) {
     console.error("[esbuild] Build failed:", error);
     process.exit(1);
