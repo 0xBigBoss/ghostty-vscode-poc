@@ -24,6 +24,13 @@
 - [x] #3 Custom Fonts - Settings (minimum: 6), hot reload with PTY resize notification
 - [x] #4 Custom Themes - CSS variables with MutationObserver, colorCustomizations merge
 - [x] #8 Open File in Editor - FilePathLinkProvider with registerLinkProvider, checkFileExists validation, OSC 7 CWD tracking, Windows path support
+- [x] Cache file existence checks with TTL (5s, 100 entries max) - Ralph iteration
+- [x] Bell notification (visual flash + status bar) - Ralph iteration
+- [x] Drag-and-drop files into terminal (paste path with shell quoting) - Ralph iteration
+- [x] Double-click to select word (ghostty-web SelectionManager) - Ralph iteration
+- [x] Triple-click to select line (added to ghostty-web) - Ralph iteration
+- [x] Search in terminal (Cmd+F / Ctrl+F) with prev/next navigation - Ralph iteration
+- [x] Unit tests for path resolution, file cache, keybinding logic (63 tests) - Ralph iteration
 
 ## In Progress
 (none)
@@ -33,11 +40,14 @@
 - [x] **Custom color schemes broken**: Fixed - MutationObserver now watches documentElement style changes
 - [x] **Keybindings captured by terminal**: Fixed in commit 28feb7d
 - [x] **Scrollback lost on window move**: Fixed - scrollback content extracted from buffer via `term.buffer.active.getLine()` API and persisted via getState/setState. Content restored with dim styling on webview recreation.
+- [x] **Theme regression after QA fixes**: Fixed - Now uses editor colors as primary (`--vscode-editor-*`), with terminal colors as fallback. Consistent with font settings priority (editor.* > terminal.integrated.*).
 
 ## Pending
-- [ ] Test resize functionality
 - [ ] Test exit closes terminal cleanly
 - [ ] Explore e2e testing setup (Playwright + VS Code or @vscode/test-electron)
+
+## Known Issues (upstream)
+- **Resize crash during active rendering**: Resizing window while cmatrix or similar high-output programs are running can crash the WASM terminal. This is a race condition in ghostty-web's `wasmTerm.resize()` - needs fix in ghostty-web repo. Workaround: 150ms debounce on resize.
 
 ## Blocked
 (none)
@@ -50,4 +60,4 @@
 - Theme hot reload limitation: existing cell content keeps original colors (cells store RGB at write time)
 - Font/theme settings priority: ghostty.* > editor.* > defaults (fixed from terminal.integrated.*)
 - OSC 7 tracked per terminal instance for CWD-relative path resolution
-- Unit tests added for settings resolution logic (`npm test`)
+- Unit tests added for settings resolution, file cache, keybinding logic (63 tests via `npm test`)

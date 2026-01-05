@@ -49,4 +49,5 @@ export type WebviewMessage =
   | { type: 'terminal-ready'; terminalId: TerminalId; cols: number; rows: number }
   | { type: 'open-url'; terminalId: TerminalId; url: string }
   | { type: 'open-file'; terminalId: TerminalId; path: string; line?: number; column?: number }
-  | { type: 'check-file-exists'; terminalId: TerminalId; requestId: string; path: string };
+  | { type: 'check-file-exists'; terminalId: TerminalId; requestId: string; path: string }
+  | { type: 'terminal-bell'; terminalId: TerminalId };

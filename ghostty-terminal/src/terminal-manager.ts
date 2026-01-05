@@ -140,6 +140,9 @@ export class TerminalManager implements vscode.Disposable {
           case 'check-file-exists':
             this.handleCheckFileExists(message.terminalId, message.requestId, message.path);
             break;
+          case 'terminal-bell':
+            this.handleTerminalBell(message.terminalId);
+            break;
         }
       },
       undefined,
@@ -345,6 +348,26 @@ export class TerminalManager implements vscode.Disposable {
         exists: false,
       });
     }
+  }
+
+  private handleTerminalBell(id: TerminalId): void {
+    const instance = this.terminals.get(id);
+    if (!instance) return;
+
+    // Show brief status bar notification (less intrusive than info message)
+    // This provides audio feedback via VS Code's accessibility settings
+    const statusBarItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Right,
+      1000
+    );
+    statusBarItem.text = '$(bell) Terminal Bell';
+    statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+    statusBarItem.show();
+
+    // Auto-hide after 2 seconds
+    setTimeout(() => {
+      statusBarItem.dispose();
+    }, 2000);
   }
 
   private handlePtyExit(id: TerminalId, exitCode: number): void {

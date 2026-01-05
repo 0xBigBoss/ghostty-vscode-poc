@@ -34,6 +34,32 @@ interface WebviewState {
   const pendingFileChecks = new Map<string, (exists: boolean) => void>();
   let requestIdCounter = 0;
 
+  // File existence cache with TTL (avoids repeated round-trips to extension)
+  const FILE_CACHE_TTL_MS = 5000; // 5 second TTL
+  const FILE_CACHE_MAX_SIZE = 100; // Max entries to prevent memory bloat
+  const fileExistsCache = new Map<string, { exists: boolean; timestamp: number }>();
+
+  function getCachedFileExists(path: string): boolean | undefined {
+    const entry = fileExistsCache.get(path);
+    if (!entry) return undefined;
+    // Check if entry is expired
+    if (Date.now() - entry.timestamp > FILE_CACHE_TTL_MS) {
+      fileExistsCache.delete(path);
+      return undefined;
+    }
+    return entry.exists;
+  }
+
+  function setCachedFileExists(path: string, exists: boolean): void {
+    // Evict oldest entries if cache is full (simple LRU approximation)
+    if (fileExistsCache.size >= FILE_CACHE_MAX_SIZE) {
+      // Delete first (oldest) entry
+      const firstKey = fileExistsCache.keys().next().value;
+      if (firstKey) fileExistsCache.delete(firstKey);
+    }
+    fileExistsCache.set(path, { exists, timestamp: Date.now() });
+  }
+
   // Initialize ghostty-web wasm (matching probe pattern)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const GhosttyModule = (window as any).GhosttyWeb || (window as any).ghosttyWeb;
@@ -65,11 +91,21 @@ interface WebviewState {
   // Captures: path, optional line, optional column
   const FILE_PATH_PATTERN = /(?:^|[\s'"(])((\.{0,2}\/)?[\w./-]+\.[a-zA-Z0-9]+)(?:[:(](\d+)(?:[,:](\d+))?[\])]?)?/g;
 
-  // Check if a file exists via extension
+  // Check if a file exists via extension (with caching)
   function checkFileExists(path: string): Promise<boolean> {
+    // Check cache first
+    const cached = getCachedFileExists(path);
+    if (cached !== undefined) {
+      return Promise.resolve(cached);
+    }
+
     return new Promise((resolve) => {
       const requestId = `req-${requestIdCounter++}`;
-      pendingFileChecks.set(requestId, resolve);
+      pendingFileChecks.set(requestId, (exists: boolean) => {
+        // Cache the result
+        setCachedFileExists(path, exists);
+        resolve(exists);
+      });
       vscode.postMessage({
         type: 'check-file-exists',
         terminalId: TERMINAL_ID,
@@ -80,6 +116,8 @@ interface WebviewState {
       setTimeout(() => {
         if (pendingFileChecks.has(requestId)) {
           pendingFileChecks.delete(requestId);
+          // Cache negative result on timeout
+          setCachedFileExists(path, false);
           resolve(false);
         }
       }, 2000);
@@ -327,12 +365,190 @@ interface WebviewState {
   themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
 
+  // ============================================================================
+  // Search in Terminal (Cmd+F / Ctrl+F)
+  // ============================================================================
+
+  // Create search overlay UI
+  const searchOverlay = document.createElement('div');
+  searchOverlay.id = 'search-overlay';
+  searchOverlay.innerHTML = `
+    <div class="search-container">
+      <input type="text" id="search-input" placeholder="Search..." />
+      <span id="search-results-count"></span>
+      <button id="search-prev" title="Previous (Shift+Enter)">▲</button>
+      <button id="search-next" title="Next (Enter)">▼</button>
+      <button id="search-close" title="Close (Escape)">✕</button>
+    </div>
+  `;
+  searchOverlay.style.display = 'none';
+  document.body.appendChild(searchOverlay);
+
+  const searchInput = document.getElementById('search-input') as HTMLInputElement;
+  const searchResultsCount = document.getElementById('search-results-count')!;
+  const searchPrevBtn = document.getElementById('search-prev')!;
+  const searchNextBtn = document.getElementById('search-next')!;
+  const searchCloseBtn = document.getElementById('search-close')!;
+
+  // Search state
+  let searchMatches: Array<{ row: number; startCol: number; endCol: number }> = [];
+  let currentMatchIndex = -1;
+
+  // Extract all terminal lines for searching
+  function getTerminalLines(): string[] {
+    const lines: string[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const buffer = (term as any).buffer;
+    if (!buffer?.active) return lines;
+
+    const scrollbackLength = buffer.active.length || 0;
+    for (let y = 0; y < scrollbackLength; y++) {
+      const line = buffer.active.getLine(y);
+      if (line) {
+        lines.push(line.translateToString(true));
+      }
+    }
+    return lines;
+  }
+
+  // Perform search and find all matches
+  function performSearch(query: string): void {
+    searchMatches = [];
+    currentMatchIndex = -1;
+
+    if (!query) {
+      updateSearchUI();
+      term.clearSelection?.();
+      return;
+    }
+
+    const lines = getTerminalLines();
+    const lowerQuery = query.toLowerCase();
+
+    for (let row = 0; row < lines.length; row++) {
+      const line = lines[row].toLowerCase();
+      let col = 0;
+      while ((col = line.indexOf(lowerQuery, col)) !== -1) {
+        searchMatches.push({
+          row,
+          startCol: col,
+          endCol: col + query.length - 1,
+        });
+        col += 1; // Move past this match to find overlapping matches
+      }
+    }
+
+    updateSearchUI();
+
+    // Auto-select first match
+    if (searchMatches.length > 0) {
+      currentMatchIndex = 0;
+      highlightCurrentMatch();
+    } else {
+      term.clearSelection?.();
+    }
+  }
+
+  // Update search UI with results count
+  function updateSearchUI(): void {
+    if (searchMatches.length === 0) {
+      searchResultsCount.textContent = searchInput.value ? 'No results' : '';
+    } else {
+      searchResultsCount.textContent = `${currentMatchIndex + 1} of ${searchMatches.length}`;
+    }
+  }
+
+  // Highlight the current match by selecting it
+  function highlightCurrentMatch(): void {
+    if (currentMatchIndex < 0 || currentMatchIndex >= searchMatches.length) return;
+
+    const match = searchMatches[currentMatchIndex];
+    // Use terminal's select API to highlight the match
+    // Need to scroll to the match row and select
+    const scrollbackLength = term.buffer?.active?.length || 0;
+    const viewportRows = term.rows;
+
+    // Calculate viewport position to show the match
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const scrollToRow = Math.max(0, match.row - Math.floor(viewportRows / 2));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (term as any).scrollToLine?.(scrollToRow);
+
+    // Select the match (row is in absolute buffer coordinates)
+    term.select?.(match.startCol, match.row, match.endCol - match.startCol + 1);
+
+    updateSearchUI();
+  }
+
+  // Navigate to next match
+  function goToNextMatch(): void {
+    if (searchMatches.length === 0) return;
+    currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
+    highlightCurrentMatch();
+  }
+
+  // Navigate to previous match
+  function goToPrevMatch(): void {
+    if (searchMatches.length === 0) return;
+    currentMatchIndex = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+    highlightCurrentMatch();
+  }
+
+  // Show search overlay
+  function showSearch(): void {
+    searchOverlay.style.display = 'block';
+    searchInput.focus();
+    searchInput.select();
+  }
+
+  // Hide search overlay
+  function hideSearch(): void {
+    searchOverlay.style.display = 'none';
+    searchInput.value = '';
+    searchMatches = [];
+    currentMatchIndex = -1;
+    searchResultsCount.textContent = '';
+    term.clearSelection?.();
+    term.focus?.();
+  }
+
+  // Search input handlers
+  searchInput.addEventListener('input', () => {
+    performSearch(searchInput.value);
+  });
+
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        goToPrevMatch();
+      } else {
+        goToNextMatch();
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      hideSearch();
+    }
+  });
+
+  searchPrevBtn.addEventListener('click', goToPrevMatch);
+  searchNextBtn.addEventListener('click', goToNextMatch);
+  searchCloseBtn.addEventListener('click', hideSearch);
+
   // Keybinding passthrough: let VS Code handle Cmd/Ctrl combos
   // Returns: true = handler consumed (preventDefault, no terminal processing)
   //          false = bubble to VS Code (no preventDefault, no terminal processing)
   //          undefined = default terminal processing
   term.attachCustomKeyEventHandler((event: KeyboardEvent): boolean | undefined => {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+    // Intercept Cmd+F / Ctrl+F for search
+    if ((isMac && event.metaKey && event.key === 'f') ||
+        (!isMac && event.ctrlKey && event.key === 'f')) {
+      event.preventDefault();
+      showSearch();
+      return true; // We handled it
+    }
 
     // On Mac: Cmd is the VS Code modifier, Ctrl sends terminal control sequences
     // On Windows/Linux: Ctrl+Shift is VS Code, Ctrl alone is terminal control
@@ -443,6 +659,18 @@ interface WebviewState {
     vscode.postMessage({ type: 'terminal-input', terminalId: TERMINAL_ID, data });
   });
 
+  // Handle bell notification (visual flash and notify extension for audio/system notification)
+  term.onBell(() => {
+    // Visual bell: brief flash of the terminal container
+    const container = document.getElementById('terminal-container');
+    if (container) {
+      container.classList.add('bell-flash');
+      setTimeout(() => container.classList.remove('bell-flash'), 150);
+    }
+    // Notify extension for system-level notification (audio, status bar, etc.)
+    vscode.postMessage({ type: 'terminal-bell', terminalId: TERMINAL_ID });
+  });
+
   // Handle resize: re-fit on container resize, notify extension
   // Debounce to prevent overwhelming WASM during rapid resize (window drag)
   // Note: ghostty-web has a known crash during resize while rendering - wrap in try-catch
@@ -517,4 +745,55 @@ interface WebviewState {
     term.write(`\x1b[90m${restoredContent}\x1b[0m\r\n`);
     term.write('\x1b[90m--- Session restored ---\x1b[0m\r\n');
   }
+
+  // Drag-and-drop files: paste file path into terminal
+  const container = document.getElementById('terminal-container')!;
+
+  container.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    container.classList.add('drag-over');
+  });
+
+  container.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    container.classList.remove('drag-over');
+  });
+
+  container.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    container.classList.remove('drag-over');
+
+    // Get dropped files
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+
+    // Build paths string (space-separated, quoted if contains spaces)
+    const paths: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      // In VS Code webviews, file.path contains the full filesystem path
+      // Note: This is a VS Code-specific extension to the File API
+      const path = (file as File & { path?: string }).path;
+      if (path) {
+        // Quote path if it contains spaces or special shell characters
+        if (/[\s"'$`\\!&;|<>()]/.test(path)) {
+          paths.push(`'${path.replace(/'/g, "'\\''")}'`);
+        } else {
+          paths.push(path);
+        }
+      }
+    }
+
+    if (paths.length > 0) {
+      // Send paths to terminal as user input
+      vscode.postMessage({
+        type: 'terminal-input',
+        terminalId: TERMINAL_ID,
+        data: paths.join(' ')
+      });
+    }
+  });
 })();
