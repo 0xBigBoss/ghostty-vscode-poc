@@ -17,4 +17,5 @@ export interface TerminalInstance {
   ready: boolean;           // Set true after terminal-ready received
   readyTimeout?: ReturnType<typeof setTimeout>;  // Timeout for ready signal
   dataQueue: string[];      // Buffer PTY data until ready (capped)
+  currentCwd?: string;      // Current working directory (tracked via OSC 7)
 }

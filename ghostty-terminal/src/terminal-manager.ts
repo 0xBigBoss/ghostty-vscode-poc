@@ -1,9 +1,57 @@
 import * as vscode from 'vscode';
 import type { TerminalId, TerminalConfig, TerminalInstance } from './types/terminal';
-import type { WebviewMessage } from './types/messages';
+import type { WebviewMessage, DisplaySettings, TerminalTheme } from './types/messages';
 import { PtyService } from './pty-service';
 import { createTerminalId, resolveConfig, MAX_DATA_QUEUE_SIZE, READY_TIMEOUT_MS, EXIT_CLOSE_DELAY_MS } from './terminal-utils';
 import { createWebviewPanel } from './webview-provider';
+
+/** Resolve display settings with priority chain: ghostty.* > terminal.integrated.* > defaults */
+function resolveDisplaySettings(): DisplaySettings {
+  const ghosttyConfig = vscode.workspace.getConfiguration('ghostty');
+  const terminalConfig = vscode.workspace.getConfiguration('terminal.integrated');
+
+  const fontFamily = ghosttyConfig.get<string>('fontFamily') ||
+                     terminalConfig.get<string>('fontFamily') ||
+                     'monospace';
+
+  const fontSize = ghosttyConfig.get<number>('fontSize') ||
+                   terminalConfig.get<number>('fontSize') ||
+                   15;
+
+  return { fontFamily, fontSize };
+}
+
+/** Get terminal theme colors from workbench.colorCustomizations */
+function resolveTerminalTheme(): TerminalTheme {
+  const colorCustomizations = vscode.workspace
+    .getConfiguration('workbench')
+    .get<Record<string, string>>('colorCustomizations') ?? {};
+
+  return {
+    foreground: colorCustomizations['terminal.foreground'],
+    background: colorCustomizations['terminal.background'],
+    cursor: colorCustomizations['terminal.cursor.foreground'],
+    cursorAccent: colorCustomizations['terminal.cursor.background'],
+    selectionBackground: colorCustomizations['terminal.selectionBackground'],
+    selectionForeground: colorCustomizations['terminal.selectionForeground'],
+    black: colorCustomizations['terminal.ansiBlack'],
+    red: colorCustomizations['terminal.ansiRed'],
+    green: colorCustomizations['terminal.ansiGreen'],
+    yellow: colorCustomizations['terminal.ansiYellow'],
+    blue: colorCustomizations['terminal.ansiBlue'],
+    magenta: colorCustomizations['terminal.ansiMagenta'],
+    cyan: colorCustomizations['terminal.ansiCyan'],
+    white: colorCustomizations['terminal.ansiWhite'],
+    brightBlack: colorCustomizations['terminal.ansiBrightBlack'],
+    brightRed: colorCustomizations['terminal.ansiBrightRed'],
+    brightGreen: colorCustomizations['terminal.ansiBrightGreen'],
+    brightYellow: colorCustomizations['terminal.ansiBrightYellow'],
+    brightBlue: colorCustomizations['terminal.ansiBrightBlue'],
+    brightMagenta: colorCustomizations['terminal.ansiBrightMagenta'],
+    brightCyan: colorCustomizations['terminal.ansiBrightCyan'],
+    brightWhite: colorCustomizations['terminal.ansiBrightWhite'],
+  };
+}
 
 export class TerminalManager implements vscode.Disposable {
   private terminals = new Map<TerminalId, TerminalInstance>();
@@ -13,6 +61,56 @@ export class TerminalManager implements vscode.Disposable {
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
     this.ptyService = new PtyService();
+
+    // Listen for configuration changes (font settings hot reload)
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration(e => {
+        if (e.affectsConfiguration('ghostty') ||
+            e.affectsConfiguration('terminal.integrated.fontFamily') ||
+            e.affectsConfiguration('terminal.integrated.fontSize')) {
+          this.broadcastSettingsUpdate();
+        }
+        // Theme colors from workbench.colorCustomizations
+        if (e.affectsConfiguration('workbench.colorCustomizations')) {
+          this.broadcastThemeUpdate();
+        }
+      })
+    );
+
+    // Listen for color theme changes (user switches dark/light theme)
+    context.subscriptions.push(
+      vscode.window.onDidChangeActiveColorTheme(() => {
+        this.broadcastThemeUpdate();
+      })
+    );
+  }
+
+  /** Broadcast updated settings to all ready terminals */
+  private broadcastSettingsUpdate(): void {
+    const settings = resolveDisplaySettings();
+    for (const [id, instance] of this.terminals) {
+      if (instance.ready) {
+        instance.panel.webview.postMessage({
+          type: 'update-settings',
+          terminalId: id,
+          settings,
+        });
+      }
+    }
+  }
+
+  /** Broadcast updated theme to all ready terminals */
+  private broadcastThemeUpdate(): void {
+    const theme = resolveTerminalTheme();
+    for (const [id, instance] of this.terminals) {
+      if (instance.ready) {
+        instance.panel.webview.postMessage({
+          type: 'update-theme',
+          terminalId: id,
+          theme,
+        });
+      }
+    }
   }
 
   createTerminal(config?: Partial<TerminalConfig>): TerminalId | null {
@@ -42,6 +140,12 @@ export class TerminalManager implements vscode.Disposable {
             break;
           case 'open-url':
             this.handleOpenUrl(message.url);
+            break;
+          case 'open-file':
+            this.handleOpenFile(message.path, message.line, message.column);
+            break;
+          case 'check-file-exists':
+            this.handleCheckFileExists(message.terminalId, message.requestId, message.path);
             break;
         }
       },
@@ -78,9 +182,26 @@ export class TerminalManager implements vscode.Disposable {
     return id;
   }
 
+  /** Parse OSC 7 escape sequence for CWD tracking */
+  private parseOSC7(data: string): string | undefined {
+    // OSC 7 format: ESC ] 7 ; file://hostname/path ESC \ (or BEL)
+    const match = data.match(/\x1b\]7;file:\/\/[^/]*([^\x07\x1b]+)(?:\x07|\x1b\\)/);
+    if (match) {
+      return decodeURIComponent(match[1]);
+    }
+    return undefined;
+  }
+
   private handlePtyData(id: TerminalId, data: string): void {
     const instance = this.terminals.get(id);
     if (!instance) return;
+
+    // Check for OSC 7 CWD update
+    const cwd = this.parseOSC7(data);
+    if (cwd) {
+      instance.currentCwd = cwd;
+    }
+
     if (!instance.ready) {
       // Buffer until ready, with cap to prevent memory bloat
       if (instance.dataQueue.length < MAX_DATA_QUEUE_SIZE) {
@@ -104,6 +225,22 @@ export class TerminalManager implements vscode.Disposable {
 
     // Resize PTY to webview-measured dimensions
     this.ptyService.resize(id, cols, rows);
+
+    // Send initial display settings
+    const settings = resolveDisplaySettings();
+    instance.panel.webview.postMessage({
+      type: 'update-settings',
+      terminalId: id,
+      settings,
+    });
+
+    // Send initial theme
+    const theme = resolveTerminalTheme();
+    instance.panel.webview.postMessage({
+      type: 'update-theme',
+      terminalId: id,
+      theme,
+    });
 
     // Flush buffered data
     for (const data of instance.dataQueue) {
@@ -161,6 +298,52 @@ export class TerminalManager implements vscode.Disposable {
         console.error(`[ghostty-terminal] Error opening URL: ${error}`);
       }
     );
+  }
+
+  private async handleOpenFile(path: string, line?: number, column?: number): Promise<void> {
+    try {
+      const uri = vscode.Uri.file(path);
+      const doc = await vscode.workspace.openTextDocument(uri);
+      const editor = await vscode.window.showTextDocument(doc);
+
+      if (line !== undefined) {
+        const position = new vscode.Position(
+          Math.max(0, line - 1), // Convert to 0-indexed
+          column !== undefined ? Math.max(0, column - 1) : 0
+        );
+        editor.selection = new vscode.Selection(position, position);
+        editor.revealRange(
+          new vscode.Range(position, position),
+          vscode.TextEditorRevealType.InCenter
+        );
+      }
+    } catch (error) {
+      console.warn(`[ghostty-terminal] Failed to open file: ${path}`, error);
+    }
+  }
+
+  private async handleCheckFileExists(
+    terminalId: TerminalId,
+    requestId: string,
+    path: string
+  ): Promise<void> {
+    const instance = this.terminals.get(terminalId);
+    if (!instance) return;
+
+    try {
+      await vscode.workspace.fs.stat(vscode.Uri.file(path));
+      instance.panel.webview.postMessage({
+        type: 'file-exists-result',
+        requestId,
+        exists: true,
+      });
+    } catch {
+      instance.panel.webview.postMessage({
+        type: 'file-exists-result',
+        requestId,
+        exists: false,
+      });
+    }
   }
 
   private handlePtyExit(id: TerminalId, exitCode: number): void {

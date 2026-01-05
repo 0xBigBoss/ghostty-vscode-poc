@@ -79,6 +79,37 @@ const vscode = acquireVsCodeApi();
   term.open(document.getElementById('terminal-container')!);
   fitAddon.fit();
 
+  // Keybinding passthrough: let VS Code handle Cmd/Ctrl combos
+  // Returns: true = terminal handles, false = bubble to VS Code, undefined = default
+  term.attachCustomKeyEventHandler((event: KeyboardEvent): boolean | undefined => {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const cmdOrCtrl = isMac ? event.metaKey : event.ctrlKey;
+
+    // Terminal-specific: Ctrl+letter without Cmd (control sequences like Ctrl+C)
+    if (event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (event.key.length === 1 && /[a-zA-Z]/.test(event.key)) {
+        return true; // Terminal handles control sequences
+      }
+    }
+
+    // Cmd/Ctrl combos should pass through to VS Code
+    if (cmdOrCtrl) {
+      // Cmd+C with selection: let browser handle copy
+      if (event.key === 'c' && !event.shiftKey && term.hasSelection?.()) {
+        return false;
+      }
+      // Cmd+V: let browser handle paste
+      if (event.key === 'v' && !event.shiftKey) {
+        return false;
+      }
+      // All other Cmd/Ctrl combos: bubble to VS Code
+      return false;
+    }
+
+    // Default terminal processing for everything else
+    return undefined;
+  });
+
   // Register message listener BEFORE posting terminal-ready
   // This ensures the ready-triggered flush doesn't arrive before handler exists
   window.addEventListener('message', (e) => {
@@ -90,6 +121,22 @@ const vscode = acquireVsCodeApi();
         break;
       case 'resize':
         term.resize(msg.cols, msg.rows);
+        break;
+      case 'update-settings':
+        // Hot reload font settings
+        if (msg.settings.fontFamily !== undefined) {
+          term.options.fontFamily = msg.settings.fontFamily;
+        }
+        if (msg.settings.fontSize !== undefined) {
+          term.options.fontSize = msg.settings.fontSize;
+        }
+        // Recalculate dimensions after font change
+        fitAddon.fit();
+        break;
+      case 'update-theme':
+        // Hot reload theme colors
+        // Note: existing cell content keeps original colors (terminal limitation)
+        term.options.theme = msg.theme;
         break;
     }
   });

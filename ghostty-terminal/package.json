@@ -31,6 +31,23 @@
           "group": "navigation"
         }
       ]
+    },
+    "configuration": {
+      "title": "Ghostty Terminal",
+      "properties": {
+        "ghostty.fontFamily": {
+          "type": "string",
+          "default": "",
+          "description": "Font family for Ghostty Terminal. Leave empty to use terminal.integrated.fontFamily."
+        },
+        "ghostty.fontSize": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 72,
+          "description": "Font size in pixels. Set to 0 to use terminal.integrated.fontSize."
+        }
+      }
     }
   },
   "scripts": {

@@ -20,6 +20,10 @@
   - [x] Input echoes correctly
   - [x] $TERM_PROGRAM shows "ghostty"
   - [x] $COLORTERM shows "truecolor"
+- [x] #2 Keybinding Passthrough - Three-way return semantics in attachCustomKeyEventHandler
+- [x] #3 Custom Fonts - Settings in package.json, resolveDisplaySettings(), config listener, webview handler
+- [x] #4 Custom Themes - TerminalTheme type, resolveTerminalTheme(), theme change listeners, webview handler
+- [x] #8 Open File in Editor - Message types (open-file, check-file-exists, file-exists-result), OSC 7 parsing, handlers
 
 ## In Progress
 (none)
@@ -36,3 +40,6 @@
 - All 13 files created per plan at `.claude/plans/validated-crunching-pelican.md`
 - Shell detection improved to check VS Code settings, then $SHELL, then fallback to /bin/zsh
 - Terminal identifies as TERM_PROGRAM=ghostty, COLORTERM=truecolor
+- Theme hot reload limitation: existing cell content keeps original colors (cells store RGB at write time)
+- Font/theme settings priority: ghostty.* > terminal.integrated.* > defaults
+- OSC 7 tracked per terminal instance for CWD-relative path resolution
