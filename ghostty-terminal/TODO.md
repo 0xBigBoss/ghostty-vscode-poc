@@ -20,10 +20,10 @@
   - [x] Input echoes correctly
   - [x] $TERM_PROGRAM shows "ghostty"
   - [x] $COLORTERM shows "truecolor"
-- [x] #2 Keybinding Passthrough - Platform-specific handling (Mac: Cmd to VS Code, Ctrl to terminal; Win/Linux: Ctrl to VS Code)
-- [x] #3 Custom Fonts - Settings in package.json (minimum: 6), resolveDisplaySettings(), config listener, webview handler
-- [x] #4 Custom Themes - CSS variables for theme colors, MutationObserver for hot reload, colorCustomizations merge
-- [x] #8 Open File in Editor - FilePathLinkProvider, checkFileExists protocol, update-cwd message, path resolution
+- [x] #2 Keybinding Passthrough - Platform-specific: Mac (Cmd→VS Code, Ctrl→terminal), Win/Linux (Ctrl+Shift→VS Code, Ctrl+letter→terminal)
+- [x] #3 Custom Fonts - Settings (minimum: 6), hot reload with PTY resize notification
+- [x] #4 Custom Themes - CSS variables with MutationObserver, colorCustomizations merge
+- [x] #8 Open File in Editor - FilePathLinkProvider with registerLinkProvider, checkFileExists validation, OSC 7 CWD tracking
 
 ## In Progress
 (none)

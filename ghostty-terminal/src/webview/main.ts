@@ -148,6 +148,101 @@ const vscode = acquireVsCodeApi();
   term.open(document.getElementById('terminal-container')!);
   fitAddon.fit();
 
+  // FilePathLinkProvider: detects file paths in terminal output and opens them on Cmd/Ctrl+Click
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const filePathLinkProvider = {
+    provideLinks(y: number, callback: (links: unknown[] | undefined) => void): void {
+      // Get the line text from terminal buffer
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const buffer = (term as any).buffer;
+      if (!buffer?.active) {
+        callback(undefined);
+        return;
+      }
+      const line = buffer.active.getLine(y);
+      if (!line) {
+        callback(undefined);
+        return;
+      }
+      const lineText = line.translateToString(true);
+      if (!lineText) {
+        callback(undefined);
+        return;
+      }
+
+      // Find file path matches
+      // Pattern: optional prefix, path with extension, optional :line:col or (line,col)
+      const pathPattern = /(?:^|[\s'"(])((\.{0,2}\/)?[\w./-]+\.[a-zA-Z0-9]+)(?:[:(](\d+)(?:[,:](\d+))?[\])]?)?/g;
+      const matches: Array<{
+        text: string;
+        path: string;
+        line?: number;
+        column?: number;
+        startX: number;
+        endX: number;
+      }> = [];
+
+      let match;
+      while ((match = pathPattern.exec(lineText)) !== null) {
+        const fullMatch = match[0];
+        const path = match[1];
+        const lineNum = match[3] ? parseInt(match[3], 10) : undefined;
+        const colNum = match[4] ? parseInt(match[4], 10) : undefined;
+
+        // Calculate start position (skip leading whitespace/quote)
+        let startX = match.index;
+        if (fullMatch[0] !== '.' && fullMatch[0] !== '/') {
+          startX += 1; // Skip the prefix character
+        }
+
+        matches.push({
+          text: path + (lineNum ? `:${lineNum}` : '') + (colNum ? `:${colNum}` : ''),
+          path,
+          line: lineNum,
+          column: colNum,
+          startX,
+          endX: startX + path.length + (lineNum ? String(lineNum).length + 1 : 0) + (colNum ? String(colNum).length + 1 : 0),
+        });
+      }
+
+      if (matches.length === 0) {
+        callback(undefined);
+        return;
+      }
+
+      // Validate and create links asynchronously
+      const validateAndCreateLinks = async () => {
+        const links: unknown[] = [];
+        for (const m of matches) {
+          const absolutePath = resolvePath(m.path);
+          const exists = await checkFileExists(absolutePath);
+          if (exists) {
+            links.push({
+              text: m.text,
+              range: {
+                start: { x: m.startX, y },
+                end: { x: m.endX, y },
+              },
+              activate: () => {
+                handleFileLinkClick(m.path, m.line, m.column);
+              },
+            });
+          }
+        }
+        callback(links.length > 0 ? links : undefined);
+      };
+
+      validateAndCreateLinks();
+    },
+  };
+
+  // Register the file path link provider
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (typeof (term as any).registerLinkProvider === 'function') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (term as any).registerLinkProvider(filePathLinkProvider);
+  }
+
   // Read theme colors from VS Code CSS variables (reliable access to theme colors)
   function getVSCodeThemeColors(): TerminalTheme {
     const style = getComputedStyle(document.documentElement);
@@ -216,7 +311,7 @@ const vscode = acquireVsCodeApi();
         return true;
       }
     } else {
-      // Windows/Linux: Ctrl is the VS Code modifier
+      // Windows/Linux: Ctrl serves dual purpose - VS Code shortcuts AND terminal control sequences
       if (event.ctrlKey) {
         // Ctrl+C with selection: let browser handle copy
         if (event.key === 'c' && !event.shiftKey && term.hasSelection?.()) {
@@ -226,7 +321,16 @@ const vscode = acquireVsCodeApi();
         if (event.key === 'v' && !event.shiftKey) {
           return false;
         }
-        // All other Ctrl combos: bubble to VS Code (Ctrl+P, Ctrl+Shift+P, etc.)
+        // Ctrl+Shift combos: bubble to VS Code (Ctrl+Shift+P, etc.)
+        if (event.shiftKey) {
+          return false;
+        }
+        // Terminal control sequences: Ctrl+C (no selection), Ctrl+D, Ctrl+Z, Ctrl+L, etc.
+        // These are single letters without Shift/Alt - let terminal handle them
+        if (!event.altKey && event.key.length === 1 && /[a-zA-Z]/.test(event.key)) {
+          return true;
+        }
+        // Other Ctrl combos (Ctrl+Tab, Ctrl+numbers, etc.): bubble to VS Code
         return false;
       }
     }
@@ -255,8 +359,14 @@ const vscode = acquireVsCodeApi();
         if (msg.settings.fontSize !== undefined) {
           term.options.fontSize = msg.settings.fontSize;
         }
-        // Recalculate dimensions after font change
+        // Recalculate dimensions after font change and notify PTY
         fitAddon.fit();
+        vscode.postMessage({
+          type: 'terminal-resize',
+          terminalId: TERMINAL_ID,
+          cols: term.cols,
+          rows: term.rows
+        });
         break;
       case 'update-theme':
         // Hot reload theme colors from extension (colorCustomizations overrides)
