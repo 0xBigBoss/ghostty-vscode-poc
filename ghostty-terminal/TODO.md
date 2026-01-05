@@ -28,9 +28,16 @@
 ## In Progress
 (none)
 
+## Bugs (from QA)
+- [ ] **Font defaults wrong**: Should default to editor font settings (`editor.fontFamily`, `editor.fontSize`), not `terminal.integrated.*`. Allow `ghostty.*` to override.
+- [ ] **Custom color schemes broken**: Theme colors not updating when changed
+- [ ] **Keybindings captured by terminal**: Cmd/Ctrl combos not passing through to VS Code
+- [ ] **Scrollback lost on window move**: Moving terminal to new window resets scrollback history
+
 ## Pending
 - [ ] Test resize functionality
 - [ ] Test exit closes terminal cleanly
+- [ ] Explore e2e testing setup (Playwright + VS Code or @vscode/test-electron)
 
 ## Blocked
 (none)

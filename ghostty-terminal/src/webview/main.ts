@@ -295,49 +295,39 @@ const vscode = acquireVsCodeApi();
   themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
   // Keybinding passthrough: let VS Code handle Cmd/Ctrl combos
-  // Returns: true = terminal handles, false = bubble to VS Code, undefined = default
+  // Returns: true = handler consumed (preventDefault, no terminal processing)
+  //          false = bubble to VS Code (no preventDefault, no terminal processing)
+  //          undefined = default terminal processing
   term.attachCustomKeyEventHandler((event: KeyboardEvent): boolean | undefined => {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
     // On Mac: Cmd is the VS Code modifier, Ctrl sends terminal control sequences
-    // On Windows/Linux: Ctrl is the VS Code modifier (no separate control sequence key)
+    // On Windows/Linux: Ctrl+Shift is VS Code, Ctrl alone is terminal control
     if (isMac) {
-      // Cmd combos bubble to VS Code
+      // Cmd combos bubble to VS Code (Cmd+P, Cmd+Shift+P, etc.)
       if (event.metaKey) {
-        // Cmd+C with selection: let browser handle copy
-        if (event.key === 'c' && !event.shiftKey && term.hasSelection?.()) {
-          return false;
-        }
-        // Cmd+V: let browser handle paste
-        if (event.key === 'v' && !event.shiftKey) {
-          return false;
-        }
-        // All other Cmd combos: bubble to VS Code
         return false;
       }
-      // Ctrl+letter on Mac: terminal handles control sequences (Ctrl+C, Ctrl+D, etc.)
+      // Ctrl+letter on Mac: let terminal process as control sequences (Ctrl+C→^C, etc.)
+      // Return undefined to let InputHandler process normally
       if (event.ctrlKey && !event.altKey && event.key.length === 1 && /[a-zA-Z]/.test(event.key)) {
-        return true;
+        return undefined;
       }
     } else {
-      // Windows/Linux: Ctrl serves dual purpose - VS Code shortcuts AND terminal control sequences
+      // Windows/Linux: Ctrl serves dual purpose
       if (event.ctrlKey) {
-        // Ctrl+C with selection: let browser handle copy
-        if (event.key === 'c' && !event.shiftKey && term.hasSelection?.()) {
-          return false;
-        }
-        // Ctrl+V: let browser handle paste
-        if (event.key === 'v' && !event.shiftKey) {
-          return false;
-        }
         // Ctrl+Shift combos: bubble to VS Code (Ctrl+Shift+P, etc.)
         if (event.shiftKey) {
           return false;
         }
+        // Ctrl+C with selection: bubble to let browser handle copy
+        if (event.key === 'c' && term.hasSelection?.()) {
+          return false;
+        }
         // Terminal control sequences: Ctrl+C (no selection), Ctrl+D, Ctrl+Z, Ctrl+L, etc.
-        // These are single letters without Shift/Alt - let terminal handle them
+        // Return undefined to let InputHandler process normally
         if (!event.altKey && event.key.length === 1 && /[a-zA-Z]/.test(event.key)) {
-          return true;
+          return undefined;
         }
         // Other Ctrl combos (Ctrl+Tab, Ctrl+numbers, etc.): bubble to VS Code
         return false;
