@@ -116,10 +116,12 @@ const vscode = acquireVsCodeApi();
     onLinkClick: (url: string, event: MouseEvent) => {
       // Only open links when Ctrl/Cmd is held (standard terminal behavior)
       if (event.ctrlKey || event.metaKey) {
-        // Check if this looks like a file path
-        const fileMatch = url.match(/^((\.{0,2}\/)?[\w./-]+\.[a-zA-Z0-9]+)(?:[:(](\d+)(?:[,:](\d+))?[\])]?)?$/);
+        // Check if this looks like a file path (Unix or Windows)
+        // Unix: /path/to/file.ts, ./rel/path.ts, ../parent/file.ts
+        // Windows: C:\path\to\file.ts, C:/path/to/file.ts
+        const fileMatch = url.match(/^((?:[a-zA-Z]:)?(?:\.{0,2}[\\/])?[\w.\\/-]+\.[a-zA-Z0-9]+)(?:[:(](\d+)(?:[,:](\d+))?[\])]?)?$/);
         if (fileMatch) {
-          const [, filePath, , lineStr, colStr] = fileMatch;
+          const [, filePath, lineStr, colStr] = fileMatch;
           const line = lineStr ? parseInt(lineStr, 10) : undefined;
           const col = colStr ? parseInt(colStr, 10) : undefined;
           handleFileLinkClick(filePath, line, col);
@@ -170,9 +172,11 @@ const vscode = acquireVsCodeApi();
         return;
       }
 
-      // Find file path matches
-      // Pattern: optional prefix, path with extension, optional :line:col or (line,col)
-      const pathPattern = /(?:^|[\s'"(])((\.{0,2}\/)?[\w./-]+\.[a-zA-Z0-9]+)(?:[:(](\d+)(?:[,:](\d+))?[\])]?)?/g;
+      // Find file path matches (Unix and Windows)
+      // Unix: /path/to/file.ts, ./rel/path.ts, ../parent/file.ts
+      // Windows: C:\path\to\file.ts, C:/path/to/file.ts
+      // With optional :line:col or (line,col) suffix
+      const pathPattern = /(?:^|[\s'"(])((?:[a-zA-Z]:)?(?:\.{0,2}[\\/])?[\w.\\/-]+\.[a-zA-Z0-9]+)(?:[:(](\d+)(?:[,:](\d+))?[\])]?)?/g;
       const matches: Array<{
         text: string;
         path: string;
@@ -186,12 +190,14 @@ const vscode = acquireVsCodeApi();
       while ((match = pathPattern.exec(lineText)) !== null) {
         const fullMatch = match[0];
         const path = match[1];
-        const lineNum = match[3] ? parseInt(match[3], 10) : undefined;
-        const colNum = match[4] ? parseInt(match[4], 10) : undefined;
+        const lineNum = match[2] ? parseInt(match[2], 10) : undefined;
+        const colNum = match[3] ? parseInt(match[3], 10) : undefined;
 
         // Calculate start position (skip leading whitespace/quote)
         let startX = match.index;
-        if (fullMatch[0] !== '.' && fullMatch[0] !== '/') {
+        // Skip prefix character if not start of path
+        const firstChar = fullMatch[0];
+        if (firstChar !== '.' && firstChar !== '/' && firstChar !== '\\' && !/[a-zA-Z]/.test(firstChar)) {
           startX += 1; // Skip the prefix character
         }
 

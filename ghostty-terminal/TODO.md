@@ -23,7 +23,7 @@
 - [x] #2 Keybinding Passthrough - Platform-specific: Mac (Cmd→VS Code, Ctrl→terminal), Win/Linux (Ctrl+Shift→VS Code, Ctrl+letter→terminal)
 - [x] #3 Custom Fonts - Settings (minimum: 6), hot reload with PTY resize notification
 - [x] #4 Custom Themes - CSS variables with MutationObserver, colorCustomizations merge
-- [x] #8 Open File in Editor - FilePathLinkProvider with registerLinkProvider, checkFileExists validation, OSC 7 CWD tracking
+- [x] #8 Open File in Editor - FilePathLinkProvider with registerLinkProvider, checkFileExists validation, OSC 7 CWD tracking, Windows path support
 
 ## In Progress
 (none)
