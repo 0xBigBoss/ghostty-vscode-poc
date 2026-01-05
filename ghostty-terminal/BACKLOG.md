@@ -2,9 +2,9 @@
 
 ## Quick Wins
 
-- [ ] Add keyboard shortcut for "New Terminal" (e.g., `Cmd+Shift+T`) in package.json keybindings
+- [x] Add keyboard shortcut for "New Terminal" (`Cmd+Shift+T`)
 - [ ] Cache file existence checks with TTL (avoid repeated round-trips)
-- [ ] Debounce resize handler (~100ms)
+- [x] Debounce resize handler (150ms)
 - [ ] Add `.vscodeignore` for lean extension packaging
 
 ## Code Quality
@@ -23,7 +23,7 @@
 ## Features
 
 - [ ] Terminal tabs / split panes
-- [ ] Copy/paste context menu
+- [x] Copy/paste context menu (browser default)
 - [ ] Search in terminal (Cmd+F)
 - [ ] Scrollback persistence across window reloads
 - [ ] Terminal profiles (different shells, env vars)

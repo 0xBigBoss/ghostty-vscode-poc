@@ -48,7 +48,14 @@
           "description": "Font size in pixels. Set to 0 to use editor.fontSize."
         }
       }
-    }
+    },
+    "keybindings": [
+      {
+        "command": "ghostty.newTerminal",
+        "key": "ctrl+shift+t",
+        "mac": "cmd+shift+t"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run build:prod",
