@@ -229,8 +229,11 @@ const vscode = acquireVsCodeApi();
                 start: { x: m.startX, y },
                 end: { x: m.endX, y },
               },
-              activate: () => {
-                handleFileLinkClick(m.path, m.line, m.column);
+              activate: (event: MouseEvent) => {
+                // Only open on Ctrl/Cmd+Click (standard terminal behavior)
+                if (event.ctrlKey || event.metaKey) {
+                  handleFileLinkClick(m.path, m.line, m.column);
+                }
               },
             });
           }
