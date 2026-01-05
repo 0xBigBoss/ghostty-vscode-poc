@@ -159,7 +159,16 @@ interface WebviewState {
   const fitAddon = new FitAddon();
   term.loadAddon(fitAddon);
   term.open(document.getElementById('terminal-container')!);
-  fitAddon.fit();
+
+  // Initial fit - use double-rAF to ensure layout is complete before measuring
+  // VS Code webviews may not have final dimensions until after paint
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      fitAddon.fit();
+      // Backup fit after 100ms in case webview layout isn't fully settled
+      setTimeout(() => fitAddon.fit(), 100);
+    });
+  });
 
   // FilePathLinkProvider: detects file paths in terminal output and opens them on Cmd/Ctrl+Click
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -263,20 +272,30 @@ interface WebviewState {
     (term as any).registerLinkProvider(filePathLinkProvider);
   }
 
-  // Read theme colors from VS Code CSS variables (reliable access to theme colors)
+  // Read theme colors from VS Code CSS variables
+  // Priority: editor colors (consistent with font settings), then terminal colors as fallback
+  // Note: VS Code has a known bug where webview CSS vars persist across theme changes (#96621)
   function getVSCodeThemeColors(): TerminalTheme {
     const style = getComputedStyle(document.documentElement);
-    const get = (name: string): string | undefined => {
-      const value = style.getPropertyValue(name).trim();
+    const get = (name: string, ...fallbacks: string[]): string | undefined => {
+      let value = style.getPropertyValue(name).trim();
+      if (!value) {
+        for (const fallback of fallbacks) {
+          value = style.getPropertyValue(fallback).trim();
+          if (value) break;
+        }
+      }
       return value || undefined;
     };
     return {
-      foreground: get('--vscode-terminal-foreground'),
-      background: get('--vscode-terminal-background'),
-      cursor: get('--vscode-terminalCursor-foreground'),
-      cursorAccent: get('--vscode-terminalCursor-background'),
-      selectionBackground: get('--vscode-terminal-selectionBackground'),
-      selectionForeground: get('--vscode-terminal-selectionForeground'),
+      // Core colors: editor first, terminal as fallback (matches font settings priority)
+      foreground: get('--vscode-editor-foreground', '--vscode-foreground', '--vscode-terminal-foreground'),
+      background: get('--vscode-editor-background', '--vscode-panel-background', '--vscode-terminal-background'),
+      cursor: get('--vscode-editorCursor-foreground', '--vscode-terminalCursor-foreground'),
+      cursorAccent: get('--vscode-editorCursor-background', '--vscode-editor-background'),
+      selectionBackground: get('--vscode-editor-selectionBackground', '--vscode-terminal-selectionBackground'),
+      selectionForeground: get('--vscode-editor-selectionForeground', '--vscode-terminal-selectionForeground'),
+      // ANSI colors: terminal-specific (no editor equivalents), fall back to ghostty-web defaults
       black: get('--vscode-terminal-ansiBlack'),
       red: get('--vscode-terminal-ansiRed'),
       green: get('--vscode-terminal-ansiGreen'),
@@ -425,14 +444,30 @@ interface WebviewState {
   });
 
   // Handle resize: re-fit on container resize, notify extension
+  // Debounce to prevent overwhelming WASM during rapid resize (window drag)
+  // Note: ghostty-web has a known crash during resize while rendering - wrap in try-catch
+  let resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  const RESIZE_DEBOUNCE_MS = 150; // Higher debounce to reduce crash likelihood
+
   const resizeObserver = new ResizeObserver(() => {
-    fitAddon.fit();
-    vscode.postMessage({
-      type: 'terminal-resize',
-      terminalId: TERMINAL_ID,
-      cols: term.cols,
-      rows: term.rows
-    });
+    if (resizeDebounceTimer) {
+      clearTimeout(resizeDebounceTimer);
+    }
+    resizeDebounceTimer = setTimeout(() => {
+      resizeDebounceTimer = null;
+      try {
+        fitAddon.fit();
+        vscode.postMessage({
+          type: 'terminal-resize',
+          terminalId: TERMINAL_ID,
+          cols: term.cols,
+          rows: term.rows
+        });
+      } catch (err) {
+        // ghostty-web WASM can crash during resize while rendering
+        console.warn('[ghostty-terminal] Resize error (WASM bug):', err);
+      }
+    }, RESIZE_DEBOUNCE_MS);
   });
   resizeObserver.observe(document.getElementById('terminal-container')!);
 

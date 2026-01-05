@@ -8,13 +8,16 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #1e1e1e;
+  /* Use VS Code editor background (consistent with font settings priority) */
+  background-color: var(--vscode-editor-background, var(--vscode-panel-background, #1e1e1e));
 }
 
 #terminal-container {
-  width: 100%;
-  height: 100%;
+  /* Use viewport units for reliable sizing in VS Code webviews */
+  width: 100vw;
+  height: 100vh;
   padding: 4px;
+  overflow: hidden;
 }
 
 /* Terminal canvas styling */
