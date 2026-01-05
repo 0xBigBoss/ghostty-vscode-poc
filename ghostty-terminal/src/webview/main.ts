@@ -449,10 +449,13 @@ interface WebviewState {
     const match = searchMatches[currentMatchIndex];
     // Use terminal's select API to highlight the match
     // Need to scroll to the match row and select
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const buffer = (term as any).buffer;
-    const scrollbackLength = buffer?.active?.length || 0;
     const viewportRows = term.rows;
+
+    // Get scrollback length (excluding visible rows)
+    // buffer.active.length = scrollback + visible rows, so subtract term.rows
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const scrollbackLength = (term as any).getScrollbackLength?.() ??
+      (((term as any).buffer?.active?.length || 0) - viewportRows);
 
     // Calculate scroll position to center the match in viewport
     // In ghostty-web: viewportY = 0 at bottom, viewportY = scrollbackLength at top
