@@ -5,7 +5,7 @@
 - [x] Add keyboard shortcut for "New Terminal" (`Cmd+Shift+T`)
 - [ ] Cache file existence checks with TTL (avoid repeated round-trips)
 - [x] Debounce resize handler (150ms)
-- [ ] Add `.vscodeignore` for lean extension packaging
+- [x] Add `.vscodeignore` for lean extension packaging
 
 ## Code Quality
 

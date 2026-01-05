@@ -1,0 +1,31 @@
+# Source files (compiled to out/)
+src/**
+**/*.ts
+!out/**/*.js
+
+# Build & config
+tsconfig.json
+esbuild.config.mjs
+.vscode/**
+
+# Documentation & specs
+*.md
+specs/**
+
+# Dev dependencies (npm prunes these on publish)
+node_modules/**
+
+# Source maps & type declarations (optional, saves space)
+**/*.map
+**/*.d.ts
+**/*.d.ts.map
+
+# Git
+.git/**
+.gitignore
+
+# Tests
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
