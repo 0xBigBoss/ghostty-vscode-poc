@@ -1,24 +1,17 @@
 import * as vscode from 'vscode';
 import type { TerminalId, TerminalConfig, TerminalInstance } from './types/terminal';
-import type { WebviewMessage, DisplaySettings, TerminalTheme } from './types/messages';
+import type { WebviewMessage, TerminalTheme } from './types/messages';
 import { PtyService } from './pty-service';
 import { createTerminalId, resolveConfig, MAX_DATA_QUEUE_SIZE, READY_TIMEOUT_MS, EXIT_CLOSE_DELAY_MS } from './terminal-utils';
 import { createWebviewPanel } from './webview-provider';
+import { resolveDisplaySettings, createVSCodeConfigGetter } from './settings-resolver';
 
-/** Resolve display settings with priority chain: ghostty.* > editor.* > defaults */
-function resolveDisplaySettings(): DisplaySettings {
-  const ghosttyConfig = vscode.workspace.getConfiguration('ghostty');
-  const editorConfig = vscode.workspace.getConfiguration('editor');
-
-  const fontFamily = ghosttyConfig.get<string>('fontFamily') ||
-                     editorConfig.get<string>('fontFamily') ||
-                     'monospace';
-
-  const fontSize = ghosttyConfig.get<number>('fontSize') ||
-                   editorConfig.get<number>('fontSize') ||
-                   15;
-
-  return { fontFamily, fontSize };
+/** Get display settings using the shared resolver (tested in settings-resolver.test.ts) */
+function getDisplaySettings() {
+  const configGetter = createVSCodeConfigGetter(
+    (section) => vscode.workspace.getConfiguration(section)
+  );
+  return resolveDisplaySettings(configGetter);
 }
 
 /** Get terminal theme colors from workbench.colorCustomizations */
@@ -87,7 +80,7 @@ export class TerminalManager implements vscode.Disposable {
 
   /** Broadcast updated settings to all ready terminals */
   private broadcastSettingsUpdate(): void {
-    const settings = resolveDisplaySettings();
+    const settings = getDisplaySettings();
     for (const [id, instance] of this.terminals) {
       if (instance.ready) {
         instance.panel.webview.postMessage({
@@ -235,7 +228,7 @@ export class TerminalManager implements vscode.Disposable {
     this.ptyService.resize(id, cols, rows);
 
     // Send initial display settings
-    const settings = resolveDisplaySettings();
+    const settings = getDisplaySettings();
     instance.panel.webview.postMessage({
       type: 'update-settings',
       terminalId: id,

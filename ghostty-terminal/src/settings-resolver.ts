@@ -23,3 +23,18 @@ export function resolveDisplaySettings(config: ConfigGetter): DisplaySettings {
 
   return { fontFamily, fontSize };
 }
+
+/**
+ * Create a ConfigGetter from VS Code workspace configuration
+ * This adapter allows the same resolution logic to be used in both
+ * production (with real VS Code API) and tests (with mocks)
+ */
+export function createVSCodeConfigGetter(
+  getConfiguration: (section: string) => { get<T>(key: string): T | undefined }
+): ConfigGetter {
+  return {
+    get<T>(section: string, key: string): T | undefined {
+      return getConfiguration(section).get<T>(key);
+    }
+  };
+}

@@ -32,7 +32,7 @@
 - [x] **Font defaults wrong**: Fixed - now defaults to `editor.fontFamily`/`editor.fontSize`, overridable by `ghostty.*`
 - [x] **Custom color schemes broken**: Fixed - MutationObserver now watches documentElement style changes
 - [x] **Keybindings captured by terminal**: Fixed in commit 28feb7d
-- [x] **Scrollback lost on window move**: Partial fix - CWD persists via getState/setState. Scrollback cannot persist (WASM memory limitation - would require ghostty-web serialization APIs)
+- [x] **Scrollback lost on window move**: Fixed - scrollback content extracted from buffer via `term.buffer.active.getLine()` API and persisted via getState/setState. Content restored with dim styling on webview recreation.
 
 ## Pending
 - [ ] Test resize functionality

@@ -15,10 +15,8 @@ const vscode = acquireVsCodeApi();
 // Webview state persistence interface
 interface WebviewState {
   currentCwd?: string;
-  // Note: Scrollback buffer cannot be persisted - it's in WASM memory
-  // When moving to a new window, the webview is destroyed and recreated,
-  // losing the WASM instance and its scrollback. This is a fundamental
-  // limitation that would require ghostty-web to add serialization APIs.
+  // Scrollback content as lines of text (extracted from buffer on state save)
+  scrollbackContent?: string[];
 }
 
 // Wrap in async IIFE for top-level await (IIFE build target)
@@ -400,8 +398,7 @@ interface WebviewState {
       case 'update-cwd':
         // Track current working directory for relative path resolution
         currentCwd = msg.cwd;
-        // Persist state for webview restoration (survives window moves)
-        vscode.setState({ currentCwd } as WebviewState);
+        // State is saved periodically and on visibility change, no need to save here
         break;
       case 'file-exists-result':
         // Resolve pending file existence check
@@ -438,4 +435,51 @@ interface WebviewState {
     });
   });
   resizeObserver.observe(document.getElementById('terminal-container')!);
+
+  // Scrollback persistence: extract buffer content for state saving
+  function extractScrollbackContent(): string[] {
+    const lines: string[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const buffer = (term as any).buffer;
+    if (!buffer?.active) return lines;
+
+    const length = buffer.active.length;
+    // Limit to prevent excessive state size (max 5000 lines)
+    const maxLines = Math.min(length, 5000);
+    for (let y = 0; y < maxLines; y++) {
+      const line = buffer.active.getLine(y);
+      if (line) {
+        lines.push(line.translateToString(true));
+      }
+    }
+    return lines;
+  }
+
+  // Save state when document becomes hidden (webview about to be destroyed)
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      const scrollbackContent = extractScrollbackContent();
+      vscode.setState({
+        currentCwd,
+        scrollbackContent,
+      } as WebviewState);
+    }
+  });
+
+  // Also save state periodically (every 30 seconds) as backup
+  setInterval(() => {
+    const scrollbackContent = extractScrollbackContent();
+    vscode.setState({
+      currentCwd,
+      scrollbackContent,
+    } as WebviewState);
+  }, 30000);
+
+  // Restore scrollback content if available from saved state
+  if (savedState?.scrollbackContent && savedState.scrollbackContent.length > 0) {
+    // Write restored content with dim styling to indicate it's history
+    const restoredContent = savedState.scrollbackContent.join('\r\n');
+    term.write(`\x1b[90m${restoredContent}\x1b[0m\r\n`);
+    term.write('\x1b[90m--- Session restored ---\x1b[0m\r\n');
+  }
 })();
