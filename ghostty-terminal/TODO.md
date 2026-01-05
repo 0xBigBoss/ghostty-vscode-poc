@@ -20,10 +20,10 @@
   - [x] Input echoes correctly
   - [x] $TERM_PROGRAM shows "ghostty"
   - [x] $COLORTERM shows "truecolor"
-- [x] #2 Keybinding Passthrough - Three-way return semantics in attachCustomKeyEventHandler
-- [x] #3 Custom Fonts - Settings in package.json, resolveDisplaySettings(), config listener, webview handler
-- [x] #4 Custom Themes - TerminalTheme type, resolveTerminalTheme(), theme change listeners, webview handler
-- [x] #8 Open File in Editor - Message types (open-file, check-file-exists, file-exists-result), OSC 7 parsing, handlers
+- [x] #2 Keybinding Passthrough - Platform-specific handling (Mac: Cmd to VS Code, Ctrl to terminal; Win/Linux: Ctrl to VS Code)
+- [x] #3 Custom Fonts - Settings in package.json (minimum: 6), resolveDisplaySettings(), config listener, webview handler
+- [x] #4 Custom Themes - CSS variables for theme colors, MutationObserver for hot reload, colorCustomizations merge
+- [x] #8 Open File in Editor - FilePathLinkProvider, checkFileExists protocol, update-cwd message, path resolution
 
 ## In Progress
 (none)

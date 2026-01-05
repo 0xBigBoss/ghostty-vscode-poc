@@ -200,6 +200,14 @@ export class TerminalManager implements vscode.Disposable {
     const cwd = this.parseOSC7(data);
     if (cwd) {
       instance.currentCwd = cwd;
+      // Notify webview of CWD change for relative path resolution
+      if (instance.ready) {
+        instance.panel.webview.postMessage({
+          type: 'update-cwd',
+          terminalId: id,
+          cwd,
+        });
+      }
     }
 
     if (!instance.ready) {

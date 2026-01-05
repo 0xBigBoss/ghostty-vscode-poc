@@ -43,7 +43,7 @@
         "ghostty.fontSize": {
           "type": "number",
           "default": 0,
-          "minimum": 0,
+          "minimum": 6,
           "maximum": 72,
           "description": "Font size in pixels. Set to 0 to use terminal.integrated.fontSize."
         }

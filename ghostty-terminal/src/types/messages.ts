@@ -39,6 +39,7 @@ export type ExtensionMessage =
   | { type: 'resize'; terminalId: TerminalId; cols: number; rows: number }
   | { type: 'update-settings'; terminalId: TerminalId; settings: DisplaySettings }
   | { type: 'update-theme'; terminalId: TerminalId; theme: TerminalTheme }
+  | { type: 'update-cwd'; terminalId: TerminalId; cwd: string }
   | { type: 'file-exists-result'; requestId: string; exists: boolean };
 
 /** Webview -> Extension */

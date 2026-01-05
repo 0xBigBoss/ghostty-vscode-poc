@@ -1,6 +1,6 @@
 // Type-only imports (stripped at build time)
 import type { TerminalId } from '../types/terminal';
-import type { ExtensionMessage } from '../types/messages';
+import type { ExtensionMessage, TerminalTheme } from '../types/messages';
 
 // Declare VS Code API (provided by webview host)
 declare function acquireVsCodeApi(): {
@@ -17,6 +17,11 @@ const vscode = acquireVsCodeApi();
   // Read injected config from body data attributes
   const TERMINAL_ID = document.body.dataset.terminalId as TerminalId;
   const WASM_URL = document.body.dataset.wasmUrl || '';
+
+  // State for file path detection
+  let currentCwd: string | undefined;
+  const pendingFileChecks = new Map<string, (exists: boolean) => void>();
+  let requestIdCounter = 0;
 
   // Initialize ghostty-web wasm (matching probe pattern)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,6 +50,60 @@ const vscode = acquireVsCodeApi();
     throw new Error('ghostty-web Terminal not found');
   }
 
+  // File path pattern: matches paths like src/foo.ts:42:10 or ./bar.js(10,5)
+  // Captures: path, optional line, optional column
+  const FILE_PATH_PATTERN = /(?:^|[\s'"(])((\.{0,2}\/)?[\w./-]+\.[a-zA-Z0-9]+)(?:[:(](\d+)(?:[,:](\d+))?[\])]?)?/g;
+
+  // Check if a file exists via extension
+  function checkFileExists(path: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const requestId = `req-${requestIdCounter++}`;
+      pendingFileChecks.set(requestId, resolve);
+      vscode.postMessage({
+        type: 'check-file-exists',
+        terminalId: TERMINAL_ID,
+        requestId,
+        path,
+      });
+      // Timeout after 2 seconds
+      setTimeout(() => {
+        if (pendingFileChecks.has(requestId)) {
+          pendingFileChecks.delete(requestId);
+          resolve(false);
+        }
+      }, 2000);
+    });
+  }
+
+  // Resolve path relative to CWD
+  function resolvePath(path: string): string {
+    // Already absolute
+    if (path.startsWith('/') || /^[a-zA-Z]:/.test(path)) {
+      return path;
+    }
+    // Strip git diff prefixes
+    if (path.startsWith('a/') || path.startsWith('b/')) {
+      path = path.slice(2);
+    }
+    // Resolve relative to CWD
+    if (currentCwd) {
+      return currentCwd + '/' + path;
+    }
+    return path;
+  }
+
+  // Handle file link click
+  function handleFileLinkClick(path: string, line?: number, column?: number): void {
+    const absolutePath = resolvePath(path);
+    vscode.postMessage({
+      type: 'open-file',
+      terminalId: TERMINAL_ID,
+      path: absolutePath,
+      line,
+      column,
+    });
+  }
+
   const termOptions: {
     cols: number;
     rows: number;
@@ -57,6 +116,16 @@ const vscode = acquireVsCodeApi();
     onLinkClick: (url: string, event: MouseEvent) => {
       // Only open links when Ctrl/Cmd is held (standard terminal behavior)
       if (event.ctrlKey || event.metaKey) {
+        // Check if this looks like a file path
+        const fileMatch = url.match(/^((\.{0,2}\/)?[\w./-]+\.[a-zA-Z0-9]+)(?:[:(](\d+)(?:[,:](\d+))?[\])]?)?$/);
+        if (fileMatch) {
+          const [, filePath, , lineStr, colStr] = fileMatch;
+          const line = lineStr ? parseInt(lineStr, 10) : undefined;
+          const col = colStr ? parseInt(colStr, 10) : undefined;
+          handleFileLinkClick(filePath, line, col);
+          return true;
+        }
+        // Otherwise treat as URL
         vscode.postMessage({ type: 'open-url', terminalId: TERMINAL_ID, url });
         return true; // Handled
       }
@@ -79,31 +148,87 @@ const vscode = acquireVsCodeApi();
   term.open(document.getElementById('terminal-container')!);
   fitAddon.fit();
 
+  // Read theme colors from VS Code CSS variables (reliable access to theme colors)
+  function getVSCodeThemeColors(): TerminalTheme {
+    const style = getComputedStyle(document.documentElement);
+    const get = (name: string): string | undefined => {
+      const value = style.getPropertyValue(name).trim();
+      return value || undefined;
+    };
+    return {
+      foreground: get('--vscode-terminal-foreground'),
+      background: get('--vscode-terminal-background'),
+      cursor: get('--vscode-terminalCursor-foreground'),
+      cursorAccent: get('--vscode-terminalCursor-background'),
+      selectionBackground: get('--vscode-terminal-selectionBackground'),
+      selectionForeground: get('--vscode-terminal-selectionForeground'),
+      black: get('--vscode-terminal-ansiBlack'),
+      red: get('--vscode-terminal-ansiRed'),
+      green: get('--vscode-terminal-ansiGreen'),
+      yellow: get('--vscode-terminal-ansiYellow'),
+      blue: get('--vscode-terminal-ansiBlue'),
+      magenta: get('--vscode-terminal-ansiMagenta'),
+      cyan: get('--vscode-terminal-ansiCyan'),
+      white: get('--vscode-terminal-ansiWhite'),
+      brightBlack: get('--vscode-terminal-ansiBrightBlack'),
+      brightRed: get('--vscode-terminal-ansiBrightRed'),
+      brightGreen: get('--vscode-terminal-ansiBrightGreen'),
+      brightYellow: get('--vscode-terminal-ansiBrightYellow'),
+      brightBlue: get('--vscode-terminal-ansiBrightBlue'),
+      brightMagenta: get('--vscode-terminal-ansiBrightMagenta'),
+      brightCyan: get('--vscode-terminal-ansiBrightCyan'),
+      brightWhite: get('--vscode-terminal-ansiBrightWhite'),
+    };
+  }
+
+  // Apply initial theme from CSS variables
+  term.options.theme = getVSCodeThemeColors();
+
+  // Watch for theme changes via MutationObserver on body class changes
+  const themeObserver = new MutationObserver(() => {
+    term.options.theme = getVSCodeThemeColors();
+  });
+  themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
   // Keybinding passthrough: let VS Code handle Cmd/Ctrl combos
   // Returns: true = terminal handles, false = bubble to VS Code, undefined = default
   term.attachCustomKeyEventHandler((event: KeyboardEvent): boolean | undefined => {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-    const cmdOrCtrl = isMac ? event.metaKey : event.ctrlKey;
 
-    // Terminal-specific: Ctrl+letter without Cmd (control sequences like Ctrl+C)
-    if (event.ctrlKey && !event.metaKey && !event.altKey) {
-      if (event.key.length === 1 && /[a-zA-Z]/.test(event.key)) {
-        return true; // Terminal handles control sequences
-      }
-    }
-
-    // Cmd/Ctrl combos should pass through to VS Code
-    if (cmdOrCtrl) {
-      // Cmd+C with selection: let browser handle copy
-      if (event.key === 'c' && !event.shiftKey && term.hasSelection?.()) {
+    // On Mac: Cmd is the VS Code modifier, Ctrl sends terminal control sequences
+    // On Windows/Linux: Ctrl is the VS Code modifier (no separate control sequence key)
+    if (isMac) {
+      // Cmd combos bubble to VS Code
+      if (event.metaKey) {
+        // Cmd+C with selection: let browser handle copy
+        if (event.key === 'c' && !event.shiftKey && term.hasSelection?.()) {
+          return false;
+        }
+        // Cmd+V: let browser handle paste
+        if (event.key === 'v' && !event.shiftKey) {
+          return false;
+        }
+        // All other Cmd combos: bubble to VS Code
         return false;
       }
-      // Cmd+V: let browser handle paste
-      if (event.key === 'v' && !event.shiftKey) {
+      // Ctrl+letter on Mac: terminal handles control sequences (Ctrl+C, Ctrl+D, etc.)
+      if (event.ctrlKey && !event.altKey && event.key.length === 1 && /[a-zA-Z]/.test(event.key)) {
+        return true;
+      }
+    } else {
+      // Windows/Linux: Ctrl is the VS Code modifier
+      if (event.ctrlKey) {
+        // Ctrl+C with selection: let browser handle copy
+        if (event.key === 'c' && !event.shiftKey && term.hasSelection?.()) {
+          return false;
+        }
+        // Ctrl+V: let browser handle paste
+        if (event.key === 'v' && !event.shiftKey) {
+          return false;
+        }
+        // All other Ctrl combos: bubble to VS Code (Ctrl+P, Ctrl+Shift+P, etc.)
         return false;
       }
-      // All other Cmd/Ctrl combos: bubble to VS Code
-      return false;
     }
 
     // Default terminal processing for everything else
@@ -134,9 +259,30 @@ const vscode = acquireVsCodeApi();
         fitAddon.fit();
         break;
       case 'update-theme':
-        // Hot reload theme colors
+        // Hot reload theme colors from extension (colorCustomizations overrides)
+        // Merge with CSS variables as base, allowing explicit customizations to override
         // Note: existing cell content keeps original colors (terminal limitation)
-        term.options.theme = msg.theme;
+        const baseTheme = getVSCodeThemeColors();
+        const mergedTheme: TerminalTheme = { ...baseTheme };
+        // Only override defined values from colorCustomizations
+        for (const [key, value] of Object.entries(msg.theme)) {
+          if (value !== undefined) {
+            (mergedTheme as Record<string, string | undefined>)[key] = value;
+          }
+        }
+        term.options.theme = mergedTheme;
+        break;
+      case 'update-cwd':
+        // Track current working directory for relative path resolution
+        currentCwd = msg.cwd;
+        break;
+      case 'file-exists-result':
+        // Resolve pending file existence check
+        const callback = pendingFileChecks.get(msg.requestId);
+        if (callback) {
+          pendingFileChecks.delete(msg.requestId);
+          callback(msg.exists);
+        }
         break;
     }
   });
