@@ -12,14 +12,27 @@ declare function acquireVsCodeApi(): {
 // Initialize VS Code API (must be called exactly once)
 const vscode = acquireVsCodeApi();
 
+// Webview state persistence interface
+interface WebviewState {
+  currentCwd?: string;
+  // Note: Scrollback buffer cannot be persisted - it's in WASM memory
+  // When moving to a new window, the webview is destroyed and recreated,
+  // losing the WASM instance and its scrollback. This is a fundamental
+  // limitation that would require ghostty-web to add serialization APIs.
+}
+
 // Wrap in async IIFE for top-level await (IIFE build target)
 (async () => {
   // Read injected config from body data attributes
   const TERMINAL_ID = document.body.dataset.terminalId as TerminalId;
   const WASM_URL = document.body.dataset.wasmUrl || '';
 
+  // Restore persisted state (survives tab switches due to retainContextWhenHidden,
+  // and partial state survives window moves via VS Code's webview state API)
+  const savedState = vscode.getState() as WebviewState | undefined;
+
   // State for file path detection
-  let currentCwd: string | undefined;
+  let currentCwd: string | undefined = savedState?.currentCwd;
   const pendingFileChecks = new Map<string, (exists: boolean) => void>();
   let requestIdCounter = 0;
 
@@ -288,11 +301,14 @@ const vscode = acquireVsCodeApi();
   // Apply initial theme from CSS variables
   term.options.theme = getVSCodeThemeColors();
 
-  // Watch for theme changes via MutationObserver on body class changes
+  // Watch for theme changes via MutationObserver
+  // - body class changes: when VS Code switches dark/light theme
+  // - documentElement style changes: when colorCustomizations or theme colors change
   const themeObserver = new MutationObserver(() => {
     term.options.theme = getVSCodeThemeColors();
   });
   themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
 
   // Keybinding passthrough: let VS Code handle Cmd/Ctrl combos
   // Returns: true = handler consumed (preventDefault, no terminal processing)
@@ -384,6 +400,8 @@ const vscode = acquireVsCodeApi();
       case 'update-cwd':
         // Track current working directory for relative path resolution
         currentCwd = msg.cwd;
+        // Persist state for webview restoration (survives window moves)
+        vscode.setState({ currentCwd } as WebviewState);
         break;
       case 'file-exists-result':
         // Resolve pending file existence check

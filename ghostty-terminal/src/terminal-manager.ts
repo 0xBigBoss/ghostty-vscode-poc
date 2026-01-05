@@ -5,17 +5,17 @@ import { PtyService } from './pty-service';
 import { createTerminalId, resolveConfig, MAX_DATA_QUEUE_SIZE, READY_TIMEOUT_MS, EXIT_CLOSE_DELAY_MS } from './terminal-utils';
 import { createWebviewPanel } from './webview-provider';
 
-/** Resolve display settings with priority chain: ghostty.* > terminal.integrated.* > defaults */
+/** Resolve display settings with priority chain: ghostty.* > editor.* > defaults */
 function resolveDisplaySettings(): DisplaySettings {
   const ghosttyConfig = vscode.workspace.getConfiguration('ghostty');
-  const terminalConfig = vscode.workspace.getConfiguration('terminal.integrated');
+  const editorConfig = vscode.workspace.getConfiguration('editor');
 
   const fontFamily = ghosttyConfig.get<string>('fontFamily') ||
-                     terminalConfig.get<string>('fontFamily') ||
+                     editorConfig.get<string>('fontFamily') ||
                      'monospace';
 
   const fontSize = ghosttyConfig.get<number>('fontSize') ||
-                   terminalConfig.get<number>('fontSize') ||
+                   editorConfig.get<number>('fontSize') ||
                    15;
 
   return { fontFamily, fontSize };
@@ -66,8 +66,8 @@ export class TerminalManager implements vscode.Disposable {
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration(e => {
         if (e.affectsConfiguration('ghostty') ||
-            e.affectsConfiguration('terminal.integrated.fontFamily') ||
-            e.affectsConfiguration('terminal.integrated.fontSize')) {
+            e.affectsConfiguration('editor.fontFamily') ||
+            e.affectsConfiguration('editor.fontSize')) {
           this.broadcastSettingsUpdate();
         }
         // Theme colors from workbench.colorCustomizations

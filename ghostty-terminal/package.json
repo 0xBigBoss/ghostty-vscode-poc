@@ -38,14 +38,14 @@
         "ghostty.fontFamily": {
           "type": "string",
           "default": "",
-          "description": "Font family for Ghostty Terminal. Leave empty to use terminal.integrated.fontFamily."
+          "description": "Font family for Ghostty Terminal. Leave empty to use editor.fontFamily."
         },
         "ghostty.fontSize": {
           "type": "number",
           "default": 0,
           "minimum": 6,
           "maximum": 72,
-          "description": "Font size in pixels. Set to 0 to use terminal.integrated.fontSize."
+          "description": "Font size in pixels. Set to 0 to use editor.fontSize."
         }
       }
     }
@@ -58,6 +58,8 @@
     "dev": "node esbuild.config.mjs --watch",
     "watch": "node esbuild.config.mjs --watch",
     "lint": "eslint src",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "postinstall": "node-pty-prebuilt-multiarch || true"
   },
   "dependencies": {
@@ -68,6 +70,7 @@
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.106.0",
     "esbuild": "^0.27.2",
-    "typescript": "~5.7.0"
+    "typescript": "~5.7.0",
+    "vitest": "^4.0.16"
   }
 }

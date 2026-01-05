@@ -29,10 +29,10 @@
 (none)
 
 ## Bugs (from QA)
-- [ ] **Font defaults wrong**: Should default to editor font settings (`editor.fontFamily`, `editor.fontSize`), not `terminal.integrated.*`. Allow `ghostty.*` to override.
-- [ ] **Custom color schemes broken**: Theme colors not updating when changed
-- [ ] **Keybindings captured by terminal**: Cmd/Ctrl combos not passing through to VS Code
-- [ ] **Scrollback lost on window move**: Moving terminal to new window resets scrollback history
+- [x] **Font defaults wrong**: Fixed - now defaults to `editor.fontFamily`/`editor.fontSize`, overridable by `ghostty.*`
+- [x] **Custom color schemes broken**: Fixed - MutationObserver now watches documentElement style changes
+- [x] **Keybindings captured by terminal**: Fixed in commit 28feb7d
+- [x] **Scrollback lost on window move**: Partial fix - CWD persists via getState/setState. Scrollback cannot persist (WASM memory limitation - would require ghostty-web serialization APIs)
 
 ## Pending
 - [ ] Test resize functionality
@@ -48,5 +48,6 @@
 - Shell detection improved to check VS Code settings, then $SHELL, then fallback to /bin/zsh
 - Terminal identifies as TERM_PROGRAM=ghostty, COLORTERM=truecolor
 - Theme hot reload limitation: existing cell content keeps original colors (cells store RGB at write time)
-- Font/theme settings priority: ghostty.* > terminal.integrated.* > defaults
+- Font/theme settings priority: ghostty.* > editor.* > defaults (fixed from terminal.integrated.*)
 - OSC 7 tracked per terminal instance for CWD-relative path resolution
+- Unit tests added for settings resolution logic (`npm test`)
