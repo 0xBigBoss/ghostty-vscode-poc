@@ -3,7 +3,7 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import type { TerminalId } from "./types/terminal";
 
-export function createWebviewHtml(
+function createWebviewHtml(
 	panel: vscode.WebviewPanel,
 	extensionPath: string,
 	terminalId: TerminalId,
