@@ -43,7 +43,7 @@
 - [x] **Theme regression after QA fixes**: Fixed - Now uses editor colors as primary (`--vscode-editor-*`), with terminal colors as fallback. Consistent with font settings priority (editor.* > terminal.integrated.*).
 
 ## Pending
-- [ ] Test exit closes terminal cleanly
+- [x] Test exit closes terminal cleanly
 - [ ] Explore e2e testing setup (Playwright + VS Code or @vscode/test-electron)
 
 ## Known Issues (upstream)

@@ -4,33 +4,33 @@
  */
 
 export interface KeyEvent {
-  key: string;
-  metaKey: boolean;
-  ctrlKey: boolean;
-  shiftKey: boolean;
-  altKey: boolean;
+	key: string;
+	metaKey: boolean;
+	ctrlKey: boolean;
+	shiftKey: boolean;
+	altKey: boolean;
 }
 
 export type KeyHandlerResult =
-  | true      // Terminal handled (preventDefault)
-  | false     // Bubble to VS Code
-  | undefined; // Default terminal processing
+	| true // Terminal handled (preventDefault)
+	| false // Bubble to VS Code
+	| undefined; // Default terminal processing
 
 /**
  * Detect if running on macOS
  */
 export function isMacPlatform(navigator: { platform: string }): boolean {
-  return navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+	return navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 }
 
 /**
  * Check if Cmd+F or Ctrl+F for search
  */
 export function isSearchShortcut(event: KeyEvent, isMac: boolean): boolean {
-  if (isMac) {
-    return event.metaKey && event.key === 'f';
-  }
-  return event.ctrlKey && event.key === 'f';
+	if (isMac) {
+		return event.metaKey && event.key === "f";
+	}
+	return event.ctrlKey && event.key === "f";
 }
 
 /**
@@ -47,39 +47,48 @@ export function isSearchShortcut(event: KeyEvent, isMac: boolean): boolean {
  * - Other Ctrl combos → bubble to VS Code
  */
 export function getKeyHandlerResult(
-  event: KeyEvent,
-  isMac: boolean,
-  hasSelection: boolean
+	event: KeyEvent,
+	isMac: boolean,
+	hasSelection: boolean,
 ): KeyHandlerResult {
-  if (isMac) {
-    // Cmd combos bubble to VS Code (Cmd+P, Cmd+Shift+P, etc.)
-    if (event.metaKey) {
-      return false;
-    }
-    // Ctrl+letter on Mac: let terminal process as control sequences (Ctrl+C→^C, etc.)
-    if (event.ctrlKey && !event.altKey && event.key.length === 1 && /[a-zA-Z]/.test(event.key)) {
-      return undefined;
-    }
-  } else {
-    // Windows/Linux: Ctrl serves dual purpose
-    if (event.ctrlKey) {
-      // Ctrl+Shift combos: bubble to VS Code (Ctrl+Shift+P, etc.)
-      if (event.shiftKey) {
-        return false;
-      }
-      // Ctrl+C with selection: bubble to let browser handle copy
-      if (event.key === 'c' && hasSelection) {
-        return false;
-      }
-      // Terminal control sequences: Ctrl+C (no selection), Ctrl+D, Ctrl+Z, Ctrl+L, etc.
-      if (!event.altKey && event.key.length === 1 && /[a-zA-Z]/.test(event.key)) {
-        return undefined;
-      }
-      // Other Ctrl combos (Ctrl+Tab, Ctrl+numbers, etc.): bubble to VS Code
-      return false;
-    }
-  }
+	if (isMac) {
+		// Cmd combos bubble to VS Code (Cmd+P, Cmd+Shift+P, etc.)
+		if (event.metaKey) {
+			return false;
+		}
+		// Ctrl+letter on Mac: let terminal process as control sequences (Ctrl+C→^C, etc.)
+		if (
+			event.ctrlKey &&
+			!event.altKey &&
+			event.key.length === 1 &&
+			/[a-zA-Z]/.test(event.key)
+		) {
+			return undefined;
+		}
+	} else {
+		// Windows/Linux: Ctrl serves dual purpose
+		if (event.ctrlKey) {
+			// Ctrl+Shift combos: bubble to VS Code (Ctrl+Shift+P, etc.)
+			if (event.shiftKey) {
+				return false;
+			}
+			// Ctrl+C with selection: bubble to let browser handle copy
+			if (event.key === "c" && hasSelection) {
+				return false;
+			}
+			// Terminal control sequences: Ctrl+C (no selection), Ctrl+D, Ctrl+Z, Ctrl+L, etc.
+			if (
+				!event.altKey &&
+				event.key.length === 1 &&
+				/[a-zA-Z]/.test(event.key)
+			) {
+				return undefined;
+			}
+			// Other Ctrl combos (Ctrl+Tab, Ctrl+numbers, etc.): bubble to VS Code
+			return false;
+		}
+	}
 
-  // Default terminal processing for everything else
-  return undefined;
+	// Default terminal processing for everything else
+	return undefined;
 }

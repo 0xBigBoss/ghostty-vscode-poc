@@ -1,11 +1,11 @@
-import type { DisplaySettings } from './types/messages';
+import type { DisplaySettings } from "./types/messages";
 
 /**
  * Configuration getter interface for testing
  * Allows mocking of vscode.workspace.getConfiguration()
  */
 export interface ConfigGetter {
-  get<T>(section: string, key: string): T | undefined;
+	get<T>(section: string, key: string): T | undefined;
 }
 
 /**
@@ -13,15 +13,17 @@ export interface ConfigGetter {
  * Extracted for testability
  */
 export function resolveDisplaySettings(config: ConfigGetter): DisplaySettings {
-  const fontFamily = config.get<string>('ghostty', 'fontFamily') ||
-                     config.get<string>('editor', 'fontFamily') ||
-                     'monospace';
+	const fontFamily =
+		config.get<string>("ghostty", "fontFamily") ||
+		config.get<string>("editor", "fontFamily") ||
+		"monospace";
 
-  const fontSize = config.get<number>('ghostty', 'fontSize') ||
-                   config.get<number>('editor', 'fontSize') ||
-                   15;
+	const fontSize =
+		config.get<number>("ghostty", "fontSize") ||
+		config.get<number>("editor", "fontSize") ||
+		15;
 
-  return { fontFamily, fontSize };
+	return { fontFamily, fontSize };
 }
 
 /**
@@ -30,11 +32,11 @@ export function resolveDisplaySettings(config: ConfigGetter): DisplaySettings {
  * production (with real VS Code API) and tests (with mocks)
  */
 export function createVSCodeConfigGetter(
-  getConfiguration: (section: string) => { get<T>(key: string): T | undefined }
+	getConfiguration: (section: string) => { get<T>(key: string): T | undefined },
 ): ConfigGetter {
-  return {
-    get<T>(section: string, key: string): T | undefined {
-      return getConfiguration(section).get<T>(key);
-    }
-  };
+	return {
+		get<T>(section: string, key: string): T | undefined {
+			return getConfiguration(section).get<T>(key);
+		},
+	};
 }

@@ -1,83 +1,93 @@
 {
-  "name": "ghostty-terminal",
-  "displayName": "Ghostty Terminal",
-  "description": "VS Code terminal powered by ghostty-web with real PTY integration",
-  "version": "0.0.1",
-  "publisher": "0xbigboss",
-  "private": true,
-  "engines": {
-    "vscode": "^1.106.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [],
-  "main": "./out/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "ghostty.newTerminal",
-        "title": "Ghostty: New Terminal"
-      },
-      {
-        "command": "ghostty.newTerminalHere",
-        "title": "Ghostty: New Terminal Here"
-      }
-    ],
-    "menus": {
-      "explorer/context": [
-        {
-          "command": "ghostty.newTerminalHere",
-          "group": "navigation"
-        }
-      ]
-    },
-    "configuration": {
-      "title": "Ghostty Terminal",
-      "properties": {
-        "ghostty.fontFamily": {
-          "type": "string",
-          "default": "",
-          "description": "Font family for Ghostty Terminal. Leave empty to use editor.fontFamily."
-        },
-        "ghostty.fontSize": {
-          "type": "number",
-          "default": 0,
-          "minimum": 6,
-          "maximum": 72,
-          "description": "Font size in pixels. Set to 0 to use editor.fontSize."
-        }
-      }
-    },
-    "keybindings": [
-      {
-        "command": "ghostty.newTerminal",
-        "key": "ctrl+shift+t",
-        "mac": "cmd+shift+t"
-      }
-    ]
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run build:prod",
-    "compile": "tsc -p ./",
-    "build": "node esbuild.config.mjs",
-    "build:prod": "NODE_ENV=production node esbuild.config.mjs",
-    "dev": "node esbuild.config.mjs --watch",
-    "watch": "node esbuild.config.mjs --watch",
-    "lint": "eslint src",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "postinstall": "node-pty-prebuilt-multiarch || true"
-  },
-  "dependencies": {
-    "ghostty-web": "file:../ghostty-web",
-    "node-pty": "^1.0.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@types/vscode": "^1.106.0",
-    "esbuild": "^0.27.2",
-    "typescript": "~5.7.0",
-    "vitest": "^4.0.16"
-  }
+	"name": "ghostty-terminal",
+	"displayName": "Ghostty Terminal",
+	"description": "VS Code terminal powered by ghostty-web with real PTY integration",
+	"version": "0.0.1",
+	"publisher": "0xbigboss",
+	"private": true,
+	"engines": {
+		"vscode": "^1.106.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [],
+	"main": "./out/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "ghostty.newTerminal",
+				"title": "Ghostty: New Terminal"
+			},
+			{
+				"command": "ghostty.newTerminalHere",
+				"title": "Ghostty: New Terminal Here"
+			}
+		],
+		"menus": {
+			"explorer/context": [
+				{
+					"command": "ghostty.newTerminalHere",
+					"group": "navigation"
+				}
+			]
+		},
+		"configuration": {
+			"title": "Ghostty Terminal",
+			"properties": {
+				"ghostty.fontFamily": {
+					"type": "string",
+					"default": "",
+					"description": "Font family for Ghostty Terminal. Leave empty to use editor.fontFamily."
+				},
+				"ghostty.fontSize": {
+					"type": "number",
+					"default": 0,
+					"minimum": 6,
+					"maximum": 72,
+					"description": "Font size in pixels. Set to 0 to use editor.fontSize."
+				}
+			}
+		},
+		"keybindings": [
+			{
+				"command": "ghostty.newTerminal",
+				"key": "ctrl+shift+t",
+				"mac": "cmd+shift+t"
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run build:prod",
+		"compile": "tsgo -p ./",
+		"build": "node esbuild.config.mjs",
+		"build:prod": "NODE_ENV=production node esbuild.config.mjs",
+		"dev": "node esbuild.config.mjs --watch",
+		"watch": "node esbuild.config.mjs --watch",
+		"typecheck": "tsgo --noEmit",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format --write .",
+		"jscpd": "jscpd src --min-lines 10 --min-tokens 50",
+		"knip": "knip",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"prepare": "lefthook install",
+		"postinstall": "node-pty-prebuilt-multiarch || true"
+	},
+	"dependencies": {
+		"ghostty-web": "file:../ghostty-web",
+		"node-pty": "^1.0.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.11",
+		"@types/node": "^22.0.0",
+		"@types/vscode": "^1.106.0",
+		"@typescript/native-preview": "^7.0.0-dev.20260105.1",
+		"esbuild": "^0.27.2",
+		"jscpd": "^4.0.5",
+		"knip": "^5.80.0",
+		"lefthook": "^2.0.13",
+		"vitest": "^4.0.16"
+	}
 }

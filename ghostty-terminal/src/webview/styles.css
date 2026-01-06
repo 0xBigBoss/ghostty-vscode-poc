@@ -1,114 +1,124 @@
 * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
 }
 
-html, body {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  /* Use VS Code editor background (consistent with font settings priority) */
-  background-color: var(--vscode-editor-background, var(--vscode-panel-background, #1e1e1e));
+html,
+body {
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	/* Use VS Code editor background (consistent with font settings priority) */
+	background-color: var(
+		--vscode-editor-background,
+		var(--vscode-panel-background, #1e1e1e)
+	);
 }
 
 #terminal-container {
-  /* Use viewport units for reliable sizing in VS Code webviews */
-  width: 100vw;
-  height: 100vh;
-  padding: 4px;
-  overflow: hidden;
+	/* Use viewport units for reliable sizing in VS Code webviews */
+	width: 100vw;
+	height: 100vh;
+	padding: 4px;
+	overflow: hidden;
 }
 
 /* Terminal canvas styling */
 #terminal-container canvas {
-  display: block;
+	display: block;
 }
 
 /* Bell visual flash effect */
 #terminal-container.bell-flash {
-  animation: bell-flash 150ms ease-out;
+	animation: bell-flash 150ms ease-out;
 }
 
 @keyframes bell-flash {
-  0% {
-    filter: brightness(1);
-  }
-  50% {
-    filter: brightness(1.3);
-  }
-  100% {
-    filter: brightness(1);
-  }
+	0% {
+		filter: brightness(1);
+	}
+	50% {
+		filter: brightness(1.3);
+	}
+	100% {
+		filter: brightness(1);
+	}
 }
 
 /* Drag-and-drop visual feedback */
 #terminal-container.drag-over {
-  outline: 2px dashed var(--vscode-focusBorder, #007fd4);
-  outline-offset: -2px;
-  background-color: rgba(0, 127, 212, 0.1);
+	outline: 2px dashed var(--vscode-focusBorder, #007fd4);
+	outline-offset: -2px;
+	background-color: rgba(0, 127, 212, 0.1);
 }
 
 /* Search overlay */
 #search-overlay {
-  position: fixed;
-  top: 4px;
-  right: 20px;
-  z-index: 1000;
+	position: fixed;
+	top: 4px;
+	right: 20px;
+	z-index: 1000;
 }
 
 #search-overlay .search-container {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background-color: var(--vscode-input-background, #3c3c3c);
-  border: 1px solid var(--vscode-input-border, #3c3c3c);
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 8px;
+	background-color: var(--vscode-input-background, #3c3c3c);
+	border: 1px solid var(--vscode-input-border, #3c3c3c);
+	border-radius: 4px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 #search-overlay #search-input {
-  width: 180px;
-  padding: 4px 8px;
-  border: none;
-  outline: none;
-  background-color: var(--vscode-input-background, #3c3c3c);
-  color: var(--vscode-input-foreground, #cccccc);
-  font-family: var(--vscode-font-family, sans-serif);
-  font-size: 13px;
+	width: 180px;
+	padding: 4px 8px;
+	border: none;
+	outline: none;
+	background-color: var(--vscode-input-background, #3c3c3c);
+	color: var(--vscode-input-foreground, #cccccc);
+	font-family: var(--vscode-font-family, sans-serif);
+	font-size: 13px;
 }
 
 #search-overlay #search-input::placeholder {
-  color: var(--vscode-input-placeholderForeground, #a0a0a0);
+	color: var(--vscode-input-placeholderForeground, #a0a0a0);
 }
 
 #search-overlay #search-input:focus {
-  outline: 1px solid var(--vscode-focusBorder, #007fd4);
-  outline-offset: -1px;
+	outline: 1px solid var(--vscode-focusBorder, #007fd4);
+	outline-offset: -1px;
 }
 
 #search-overlay #search-results-count {
-  font-size: 12px;
-  color: var(--vscode-descriptionForeground, #a0a0a0);
-  min-width: 70px;
-  text-align: center;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground, #a0a0a0);
+	min-width: 70px;
+	text-align: center;
 }
 
 #search-overlay button {
-  padding: 2px 6px;
-  border: none;
-  background-color: transparent;
-  color: var(--vscode-foreground, #cccccc);
-  cursor: pointer;
-  font-size: 12px;
-  border-radius: 2px;
+	padding: 2px 6px;
+	border: none;
+	background-color: transparent;
+	color: var(--vscode-foreground, #cccccc);
+	cursor: pointer;
+	font-size: 12px;
+	border-radius: 2px;
 }
 
 #search-overlay button:hover {
-  background-color: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.1));
+	background-color: var(
+		--vscode-list-hoverBackground,
+		rgba(255, 255, 255, 0.1)
+	);
 }
 
 #search-overlay button:active {
-  background-color: var(--vscode-list-activeSelectionBackground, rgba(255, 255, 255, 0.2));
+	background-color: var(
+		--vscode-list-activeSelectionBackground,
+		rgba(255, 255, 255, 0.2)
+	);
 }
