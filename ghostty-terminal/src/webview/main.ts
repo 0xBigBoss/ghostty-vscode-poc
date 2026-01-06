@@ -309,12 +309,14 @@ interface WebviewState {
       }
       return value || undefined;
     };
+
     return {
       // Core colors: editor first, terminal as fallback (matches font settings priority)
       foreground: get('--vscode-editor-foreground', '--vscode-foreground', '--vscode-terminal-foreground'),
       background: get('--vscode-editor-background', '--vscode-panel-background', '--vscode-terminal-background'),
       cursor: get('--vscode-editorCursor-foreground', '--vscode-terminalCursor-foreground'),
       cursorAccent: get('--vscode-editorCursor-background', '--vscode-editor-background'),
+      // Use editor selection colors for consistency with VS Code editor tabs
       selectionBackground: get('--vscode-editor-selectionBackground', '--vscode-terminal-selectionBackground'),
       selectionForeground: get('--vscode-editor-selectionForeground', '--vscode-terminal-selectionForeground'),
       // ANSI colors: terminal-specific (no editor equivalents), fall back to ghostty-web defaults
