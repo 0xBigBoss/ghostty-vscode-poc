@@ -11,13 +11,41 @@
 	"categories": [
 		"Other"
 	],
-	"activationEvents": [],
+	"activationEvents": [
+		"onView:ghosttyTerminalPanel",
+		"onCommand:ghostty.newTerminal",
+		"onCommand:ghostty.newTerminalInEditor",
+		"onCommand:ghostty.newTerminalInPanel",
+		"onCommand:ghostty.togglePanel",
+		"onCommand:ghostty.newTerminalHere"
+	],
 	"main": "./out/extension.js",
 	"contributes": {
+		"views": {
+			"panel": [
+				{
+					"id": "ghosttyTerminalPanel",
+					"name": "Ghostty",
+					"type": "webview"
+				}
+			]
+		},
 		"commands": [
 			{
 				"command": "ghostty.newTerminal",
 				"title": "Ghostty: New Terminal"
+			},
+			{
+				"command": "ghostty.newTerminalInEditor",
+				"title": "Ghostty: New Terminal in Editor"
+			},
+			{
+				"command": "ghostty.newTerminalInPanel",
+				"title": "Ghostty: New Terminal in Panel"
+			},
+			{
+				"command": "ghostty.togglePanel",
+				"title": "Ghostty: Toggle Terminal Panel"
 			},
 			{
 				"command": "ghostty.newTerminalHere",
@@ -46,12 +74,31 @@
 					"minimum": 6,
 					"maximum": 72,
 					"description": "Font size in pixels. Set to 0 to use editor.fontSize."
+				},
+				"ghostty.defaultTerminalLocation": {
+					"type": "string",
+					"enum": [
+						"panel",
+						"editor"
+					],
+					"default": "panel",
+					"description": "Where new terminals open by default"
 				}
 			}
 		},
 		"keybindings": [
 			{
+				"command": "ghostty.togglePanel",
+				"key": "ctrl+`",
+				"mac": "ctrl+`"
+			},
+			{
 				"command": "ghostty.newTerminal",
+				"key": "ctrl+shift+`",
+				"mac": "ctrl+shift+`"
+			},
+			{
+				"command": "ghostty.newTerminalInEditor",
 				"key": "ctrl+shift+t",
 				"mac": "cmd+shift+t"
 			}

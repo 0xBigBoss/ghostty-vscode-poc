@@ -32,7 +32,7 @@ export interface TerminalTheme {
 	brightWhite?: string;
 }
 
-/** Extension -> Webview */
+/** Extension -> Webview (editor terminals) */
 export type ExtensionMessage =
 	| { type: "pty-data"; terminalId: TerminalId; data: string }
 	| { type: "pty-exit"; terminalId: TerminalId; exitCode: number }
@@ -46,7 +46,20 @@ export type ExtensionMessage =
 	| { type: "update-cwd"; terminalId: TerminalId; cwd: string }
 	| { type: "file-exists-result"; requestId: string; exists: boolean };
 
-/** Webview -> Extension */
+/** Extension -> Panel Webview (panel-specific messages) */
+export type PanelExtensionMessage =
+	| ExtensionMessage
+	| {
+			type: "add-tab";
+			terminalId: TerminalId;
+			title: string;
+			makeActive: boolean;
+	  }
+	| { type: "remove-tab"; terminalId: TerminalId }
+	| { type: "rename-tab"; terminalId: TerminalId; title: string }
+	| { type: "activate-tab"; terminalId: TerminalId };
+
+/** Webview -> Extension (editor terminals) */
 export type WebviewMessage =
 	| { type: "terminal-input"; terminalId: TerminalId; data: string }
 	| {
@@ -76,3 +89,18 @@ export type WebviewMessage =
 			path: string;
 	  }
 	| { type: "terminal-bell"; terminalId: TerminalId };
+
+/** Panel Webview -> Extension (panel-specific messages) */
+export type PanelWebviewMessage =
+	| WebviewMessage
+	| { type: "panel-ready" } // Panel webview loaded (no terminal yet)
+	| {
+			type: "tab-activated";
+			terminalId: TerminalId;
+			cols: number;
+			rows: number;
+	  } // Tab switch with resize
+	| { type: "tab-close-requested"; terminalId: TerminalId }
+	| { type: "new-tab-requested" }
+	| { type: "new-tab-requested-with-title"; title: string; makeActive: boolean } // Restore with saved metadata
+	| { type: "tab-renamed"; terminalId: TerminalId; title: string }; // User edited title

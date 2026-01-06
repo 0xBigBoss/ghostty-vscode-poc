@@ -31,6 +31,18 @@
 - [x] Triple-click to select line (added to ghostty-web) - Ralph iteration
 - [x] Search in terminal (Cmd+F / Ctrl+F) with prev/next navigation - Ralph iteration
 - [x] Unit tests for path resolution, file cache, keybinding logic (63 tests) - Ralph iteration
+- [x] Panel-based terminals (bottom panel like VS Code built-in terminal) - Ralph iteration
+  - [x] Added `GhosttyPanelViewProvider` with WebviewViewProvider
+  - [x] Created panel webview with tab bar (panel-main.ts, panel-template.html, panel-styles.css)
+  - [x] Discriminated union types for EditorTerminalInstance vs PanelTerminalInstance
+  - [x] Message protocol for panel-specific messages (add-tab, remove-tab, tab-activated, etc.)
+  - [x] Location-based routing in terminal-manager.ts
+  - [x] Commands: ghostty.togglePanel, ghostty.newTerminalInEditor, ghostty.newTerminalInPanel
+  - [x] Keybindings: ctrl+` (toggle panel), ctrl+shift+` (new terminal), ctrl+shift+t (new in editor)
+  - [x] Configuration: ghostty.defaultTerminalLocation (panel/editor)
+  - [x] Auto-create terminal when panel is empty on toggle
+  - [x] Panel revealed before creating panel terminals (prevents timeout)
+  - [x] State restoration preserves tab titles and active state
 
 ## In Progress
 (none)
@@ -53,11 +65,13 @@
 (none)
 
 ## Notes
-- Build output: `out/extension.js`, `out/webview/main.js`, `out/webview/template.html`, `out/webview/styles.css`
+- Build output: `out/extension.js`, `out/webview/main.js`, `out/webview/panel-main.js`, `out/webview/*.html`, `out/webview/*.css`
 - All 13 files created per plan at `.claude/plans/validated-crunching-pelican.md`
 - Shell detection improved to check VS Code settings, then $SHELL, then fallback to /bin/zsh
 - Terminal identifies as TERM_PROGRAM=ghostty, COLORTERM=truecolor
 - Theme hot reload limitation: existing cell content keeps original colors (cells store RGB at write time)
 - Font/theme settings priority: ghostty.* > editor.* > defaults (fixed from terminal.integrated.*)
 - OSC 7 tracked per terminal instance for CWD-relative path resolution
-- Unit tests added for settings resolution, file cache, keybinding logic (63 tests via `npm test`)
+- Unit tests added for settings resolution, file cache, keybinding logic (73 tests via `npm test`)
+- Panel terminals use discriminated union types for type-safe access to location-specific fields
+- Panel state restoration on reload recreates PTY processes but preserves tab titles and active state

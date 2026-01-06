@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import type { GhosttyPanelViewProvider } from "./panel-view-provider";
 import { PtyService } from "./pty-service";
 import {
 	createVSCodeConfigGetter,
@@ -11,11 +12,19 @@ import {
 	READY_TIMEOUT_MS,
 	resolveConfig,
 } from "./terminal-utils";
-import type { TerminalTheme, WebviewMessage } from "./types/messages";
 import type {
+	ExtensionMessage,
+	PanelWebviewMessage,
+	TerminalTheme,
+	WebviewMessage,
+} from "./types/messages";
+import type {
+	EditorTerminalInstance,
+	PanelTerminalInstance,
 	TerminalConfig,
 	TerminalId,
 	TerminalInstance,
+	TerminalLocation,
 } from "./types/terminal";
 import { createWebviewPanel } from "./webview-provider";
 
@@ -64,9 +73,15 @@ export class TerminalManager implements vscode.Disposable {
 	private terminals = new Map<TerminalId, TerminalInstance>();
 	private ptyService: PtyService;
 	private context: vscode.ExtensionContext;
+	private panelProvider: GhosttyPanelViewProvider;
+	private terminalCounter = 0; // For generating tab titles
 
-	constructor(context: vscode.ExtensionContext) {
+	constructor(
+		context: vscode.ExtensionContext,
+		panelProvider: GhosttyPanelViewProvider,
+	) {
 		this.context = context;
+		this.panelProvider = panelProvider;
 		this.ptyService = new PtyService();
 
 		// Listen for configuration changes (font settings hot reload)
@@ -94,12 +109,26 @@ export class TerminalManager implements vscode.Disposable {
 		);
 	}
 
+	/** Type-safe message posting using discriminated union */
+	private postToTerminal(id: TerminalId, message: ExtensionMessage): void {
+		const instance = this.terminals.get(id);
+		if (!instance || !instance.ready) return;
+
+		if (instance.location === "editor") {
+			// TypeScript knows instance.panel exists here
+			instance.panel.webview.postMessage(message);
+		} else {
+			// instance.location === 'panel' - use panel provider
+			this.panelProvider.postMessage(message);
+		}
+	}
+
 	/** Broadcast updated settings to all ready terminals */
 	private broadcastSettingsUpdate(): void {
 		const settings = getDisplaySettings();
 		for (const [id, instance] of this.terminals) {
 			if (instance.ready) {
-				instance.panel.webview.postMessage({
+				this.postToTerminal(id, {
 					type: "update-settings",
 					terminalId: id,
 					settings,
@@ -113,7 +142,7 @@ export class TerminalManager implements vscode.Disposable {
 		const theme = resolveTerminalTheme();
 		for (const [id, instance] of this.terminals) {
 			if (instance.ready) {
-				instance.panel.webview.postMessage({
+				this.postToTerminal(id, {
 					type: "update-theme",
 					terminalId: id,
 					theme,
@@ -123,79 +152,45 @@ export class TerminalManager implements vscode.Disposable {
 	}
 
 	createTerminal(config?: Partial<TerminalConfig>): TerminalId | null {
+		const location: TerminalLocation = config?.location ?? "panel";
+		return location === "editor"
+			? this.createEditorTerminal(config)
+			: this.createPanelTerminal(config);
+	}
+
+	/** Create terminal in editor tab */
+	private createEditorTerminal(
+		config?: Partial<TerminalConfig>,
+	): TerminalId | null {
 		const id = createTerminalId();
 		const panel = createWebviewPanel(this.context.extensionUri, id);
-		const instance: TerminalInstance = {
+		const instance: EditorTerminalInstance = {
 			id,
+			location: "editor",
 			config: config ?? {},
 			panel,
 			ready: false,
 			dataQueue: [],
+			title: `Terminal ${++this.terminalCounter}`,
 		};
 		this.terminals.set(id, instance);
 
 		// Setup message handler for webview -> extension
 		panel.webview.onDidReceiveMessage(
-			(message: WebviewMessage) => {
-				switch (message.type) {
-					case "terminal-ready":
-						this.handleTerminalReady(
-							message.terminalId,
-							message.cols,
-							message.rows,
-						);
-						break;
-					case "terminal-input":
-						this.handleTerminalInput(message.terminalId, message.data);
-						break;
-					case "terminal-resize":
-						this.handleTerminalResize(
-							message.terminalId,
-							message.cols,
-							message.rows,
-						);
-						break;
-					case "open-url":
-						this.handleOpenUrl(message.url);
-						break;
-					case "open-file":
-						this.handleOpenFile(message.path, message.line, message.column);
-						break;
-					case "check-file-exists":
-						this.handleCheckFileExists(
-							message.terminalId,
-							message.requestId,
-							message.path,
-						);
-						break;
-					case "terminal-bell":
-						this.handleTerminalBell(message.terminalId);
-						break;
-				}
-			},
+			(message: WebviewMessage) => this.handleWebviewMessage(message),
 			undefined,
 			this.context.subscriptions,
 		);
 
-		// Spawn PTY with resolved config
-		const resolvedConfig = resolveConfig(config);
-		const result = this.ptyService.spawn(id, resolvedConfig, {
-			onData: (data) => this.handlePtyData(id, data),
-			onExit: (code) => this.handlePtyExit(id, code),
-			onError: (error) => this.handlePtyError(id, error),
-		});
-
-		// Handle spawn failure
-		if (!result.ok) {
-			vscode.window.showErrorMessage(
-				`Failed to start terminal: ${result.error}`,
-			);
+		// Spawn PTY
+		const spawnResult = this.spawnPty(id, config);
+		if (!spawnResult.ok) {
 			panel.dispose();
 			this.terminals.delete(id);
 			return null;
 		}
 
-		// Set timeout for terminal-ready (webview load failure protection)
+		// Set ready timeout
 		instance.readyTimeout = setTimeout(() => {
 			if (!instance.ready) {
 				vscode.window.showErrorMessage(
@@ -208,6 +203,199 @@ export class TerminalManager implements vscode.Disposable {
 		// Cleanup on panel close
 		panel.onDidDispose(() => this.destroyTerminal(id));
 		return id;
+	}
+
+	/** Create terminal in panel tab */
+	private createPanelTerminal(
+		config?: Partial<TerminalConfig>,
+	): TerminalId | null {
+		const id = createTerminalId();
+		const title = `Terminal ${++this.terminalCounter}`;
+		const instance: PanelTerminalInstance = {
+			id,
+			location: "panel",
+			config: config ?? {},
+			ready: false,
+			dataQueue: [],
+			title,
+		};
+		this.terminals.set(id, instance);
+
+		// Spawn PTY
+		const spawnResult = this.spawnPty(id, config);
+		if (!spawnResult.ok) {
+			this.terminals.delete(id);
+			return null;
+		}
+
+		// Set ready timeout
+		instance.readyTimeout = setTimeout(() => {
+			if (!instance.ready) {
+				vscode.window.showErrorMessage(
+					"Terminal failed to initialize (timeout)",
+				);
+				this.destroyTerminal(id);
+			}
+		}, READY_TIMEOUT_MS);
+
+		// Add tab to panel (panel handles message routing)
+		this.panelProvider.addTerminal(id, title, true);
+		return id;
+	}
+
+	/** Create terminal in panel tab with specific title (for state restoration) */
+	private createPanelTerminalWithTitle(
+		title: string,
+		makeActive: boolean,
+	): TerminalId | null {
+		const id = createTerminalId();
+		const instance: PanelTerminalInstance = {
+			id,
+			location: "panel",
+			config: {},
+			ready: false,
+			dataQueue: [],
+			title,
+		};
+		this.terminals.set(id, instance);
+
+		// Spawn PTY
+		const spawnResult = this.spawnPty(id, {});
+		if (!spawnResult.ok) {
+			this.terminals.delete(id);
+			return null;
+		}
+
+		// Set ready timeout
+		instance.readyTimeout = setTimeout(() => {
+			if (!instance.ready) {
+				vscode.window.showErrorMessage(
+					"Terminal failed to initialize (timeout)",
+				);
+				this.destroyTerminal(id);
+			}
+		}, READY_TIMEOUT_MS);
+
+		// Add tab to panel with specified title and active state
+		this.panelProvider.addTerminal(id, title, makeActive);
+		return id;
+	}
+
+	/** Spawn PTY process for terminal */
+	private spawnPty(
+		id: TerminalId,
+		config?: Partial<TerminalConfig>,
+	): { ok: true } | { ok: false; error: string } {
+		const resolvedConfig = resolveConfig(config);
+		const result = this.ptyService.spawn(id, resolvedConfig, {
+			onData: (data) => this.handlePtyData(id, data),
+			onExit: (code) => this.handlePtyExit(id, code),
+			onError: (error) => this.handlePtyError(id, error),
+		});
+
+		if (!result.ok) {
+			vscode.window.showErrorMessage(
+				`Failed to start terminal: ${result.error}`,
+			);
+			return { ok: false, error: result.error };
+		}
+		return { ok: true };
+	}
+
+	/** Handle messages from panel webview */
+	handlePanelMessage(message: PanelWebviewMessage): void {
+		switch (message.type) {
+			case "panel-ready":
+				// Panel webview loaded, ready to receive messages
+				break;
+			case "terminal-ready":
+				this.handleTerminalReady(
+					message.terminalId,
+					message.cols,
+					message.rows,
+				);
+				break;
+			case "tab-activated":
+				// Tab switch with resize
+				this.handleTerminalResize(
+					message.terminalId,
+					message.cols,
+					message.rows,
+				);
+				break;
+			case "tab-close-requested":
+				this.destroyTerminal(message.terminalId);
+				break;
+			case "new-tab-requested":
+				this.createTerminal({ location: "panel" });
+				break;
+			case "new-tab-requested-with-title":
+				this.createPanelTerminalWithTitle(message.title, message.makeActive);
+				break;
+			case "tab-renamed":
+				this.handleTabRenamed(message.terminalId, message.title);
+				break;
+			default:
+				// Handle common WebviewMessage types
+				this.handleWebviewMessage(message);
+		}
+	}
+
+	/** Handle messages from editor webview */
+	private handleWebviewMessage(message: WebviewMessage): void {
+		switch (message.type) {
+			case "terminal-ready":
+				this.handleTerminalReady(
+					message.terminalId,
+					message.cols,
+					message.rows,
+				);
+				break;
+			case "terminal-input":
+				this.handleTerminalInput(message.terminalId, message.data);
+				break;
+			case "terminal-resize":
+				this.handleTerminalResize(
+					message.terminalId,
+					message.cols,
+					message.rows,
+				);
+				break;
+			case "open-url":
+				this.handleOpenUrl(message.url);
+				break;
+			case "open-file":
+				this.handleOpenFile(message.path, message.line, message.column);
+				break;
+			case "check-file-exists":
+				this.handleCheckFileExists(
+					message.terminalId,
+					message.requestId,
+					message.path,
+				);
+				break;
+			case "terminal-bell":
+				this.handleTerminalBell(message.terminalId);
+				break;
+		}
+	}
+
+	/** Handle tab rename from panel */
+	private handleTabRenamed(id: TerminalId, title: string): void {
+		const instance = this.terminals.get(id);
+		if (instance) {
+			instance.title = title;
+		}
+	}
+
+	/** Check if there are any terminals in the panel */
+	hasPanelTerminals(): boolean {
+		for (const instance of this.terminals.values()) {
+			if (instance.location === "panel") {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Parse OSC 7 escape sequence for CWD tracking */
@@ -232,7 +420,7 @@ export class TerminalManager implements vscode.Disposable {
 			instance.currentCwd = cwd;
 			// Notify webview of CWD change for relative path resolution
 			if (instance.ready) {
-				instance.panel.webview.postMessage({
+				this.postToTerminal(id, {
 					type: "update-cwd",
 					terminalId: id,
 					cwd,
@@ -247,7 +435,7 @@ export class TerminalManager implements vscode.Disposable {
 			}
 			// Silently drop if over cap (better than OOM)
 		} else {
-			instance.panel.webview.postMessage({
+			this.postToTerminal(id, {
 				type: "pty-data",
 				terminalId: id,
 				data,
@@ -272,9 +460,12 @@ export class TerminalManager implements vscode.Disposable {
 		// Resize PTY to webview-measured dimensions
 		this.ptyService.resize(id, cols, rows);
 
+		// Mark ready BEFORE posting messages so postToTerminal works
+		instance.ready = true;
+
 		// Send initial display settings
 		const settings = getDisplaySettings();
-		instance.panel.webview.postMessage({
+		this.postToTerminal(id, {
 			type: "update-settings",
 			terminalId: id,
 			settings,
@@ -282,7 +473,7 @@ export class TerminalManager implements vscode.Disposable {
 
 		// Send initial theme
 		const theme = resolveTerminalTheme();
-		instance.panel.webview.postMessage({
+		this.postToTerminal(id, {
 			type: "update-theme",
 			terminalId: id,
 			theme,
@@ -290,14 +481,13 @@ export class TerminalManager implements vscode.Disposable {
 
 		// Flush buffered data
 		for (const data of instance.dataQueue) {
-			instance.panel.webview.postMessage({
+			this.postToTerminal(id, {
 				type: "pty-data",
 				terminalId: id,
 				data,
 			});
 		}
 		instance.dataQueue = [];
-		instance.ready = true;
 	}
 
 	private handleTerminalInput(id: TerminalId, data: string): void {
@@ -392,13 +582,13 @@ export class TerminalManager implements vscode.Disposable {
 
 		try {
 			await vscode.workspace.fs.stat(vscode.Uri.file(path));
-			instance.panel.webview.postMessage({
+			this.postToTerminal(terminalId, {
 				type: "file-exists-result",
 				requestId,
 				exists: true,
 			});
 		} catch {
-			instance.panel.webview.postMessage({
+			this.postToTerminal(terminalId, {
 				type: "file-exists-result",
 				requestId,
 				exists: false,
@@ -433,7 +623,7 @@ export class TerminalManager implements vscode.Disposable {
 		if (!instance) return;
 
 		// Notify webview of exit (shows "[Process exited with code N]")
-		instance.panel.webview.postMessage({
+		this.postToTerminal(id, {
 			type: "pty-exit",
 			terminalId: id,
 			exitCode,
@@ -469,8 +659,14 @@ export class TerminalManager implements vscode.Disposable {
 		// Kill PTY process (safe to call if already dead)
 		this.ptyService.kill(id);
 
-		// Dispose panel (onDidDispose will call destroyTerminal but guard above prevents re-entry)
-		instance.panel.dispose();
+		// Location-aware teardown
+		if (instance.location === "editor") {
+			// Editor: dispose the WebviewPanel (onDidDispose guard above prevents re-entry)
+			instance.panel.dispose();
+		} else {
+			// Panel: just remove the tab, do NOT dispose the panel WebviewView
+			this.panelProvider.removeTerminal(id);
+		}
 	}
 
 	dispose(): void {
@@ -479,7 +675,10 @@ export class TerminalManager implements vscode.Disposable {
 				clearTimeout(instance.readyTimeout);
 			}
 			this.ptyService.kill(id);
-			instance.panel.dispose();
+			if (instance.location === "editor") {
+				instance.panel.dispose();
+			}
+			// Panel terminals: don't dispose panel WebviewView, just let it clean up
 		}
 		this.terminals.clear();
 		this.ptyService.dispose();

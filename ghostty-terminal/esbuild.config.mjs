@@ -18,11 +18,23 @@ const extensionConfig = {
 	target: "node18",
 };
 
-// Webview bundle (browser, IIFE)
+// Webview bundle (browser, IIFE) - Editor terminals
 const webviewConfig = {
 	entryPoints: ["src/webview/main.ts"],
 	bundle: true,
 	outfile: "out/webview/main.js",
+	platform: "browser",
+	format: "iife",
+	sourcemap: !isProd,
+	minify: isProd,
+	target: "es2022",
+};
+
+// Panel webview bundle (browser, IIFE) - Panel terminals
+const panelWebviewConfig = {
+	entryPoints: ["src/webview/panel-main.ts"],
+	bundle: true,
+	outfile: "out/webview/panel-main.js",
 	platform: "browser",
 	format: "iife",
 	sourcemap: !isProd,
@@ -57,9 +69,37 @@ async function build() {
 			console.log("[esbuild] Webview entry not found, skipping webview build.");
 		}
 
+		// Build panel webview (if entry exists)
+		const panelWebviewEntry = path.join(
+			process.cwd(),
+			"src/webview/panel-main.ts",
+		);
+		if (fs.existsSync(panelWebviewEntry)) {
+			if (isWatch) {
+				const panelWebviewCtx = await esbuild.context(panelWebviewConfig);
+				await panelWebviewCtx.watch();
+				console.log("[esbuild] Watching panel webview...");
+			} else {
+				await esbuild.build(panelWebviewConfig);
+				console.log("[esbuild] Panel webview built.");
+			}
+		} else {
+			console.log(
+				"[esbuild] Panel webview entry not found, skipping panel webview build.",
+			);
+		}
+
 		// Copy static files
 		const templateSrc = path.join(process.cwd(), "src/webview/template.html");
 		const stylesSrc = path.join(process.cwd(), "src/webview/styles.css");
+		const panelTemplateSrc = path.join(
+			process.cwd(),
+			"src/webview/panel-template.html",
+		);
+		const panelStylesSrc = path.join(
+			process.cwd(),
+			"src/webview/panel-styles.css",
+		);
 		const outWebview = path.join(process.cwd(), "out/webview");
 
 		function copyStaticFiles() {
@@ -72,6 +112,18 @@ async function build() {
 			if (fs.existsSync(stylesSrc)) {
 				fs.copyFileSync(stylesSrc, path.join(outWebview, "styles.css"));
 			}
+			if (fs.existsSync(panelTemplateSrc)) {
+				fs.copyFileSync(
+					panelTemplateSrc,
+					path.join(outWebview, "panel-template.html"),
+				);
+			}
+			if (fs.existsSync(panelStylesSrc)) {
+				fs.copyFileSync(
+					panelStylesSrc,
+					path.join(outWebview, "panel-styles.css"),
+				);
+			}
 		}
 
 		copyStaticFiles();
@@ -80,7 +132,12 @@ async function build() {
 		// Watch static files in dev mode
 		if (isWatch) {
 			fs.watch(path.dirname(templateSrc), (_eventType, filename) => {
-				if (filename === "template.html" || filename === "styles.css") {
+				if (
+					filename === "template.html" ||
+					filename === "styles.css" ||
+					filename === "panel-template.html" ||
+					filename === "panel-styles.css"
+				) {
 					copyStaticFiles();
 					console.log(`[esbuild] Static file ${filename} updated.`);
 				}
