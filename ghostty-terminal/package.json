@@ -102,6 +102,15 @@
 					],
 					"default": "panel",
 					"description": "Where new terminals open by default"
+				},
+				"ghostty.bell": {
+					"type": "string",
+					"enum": [
+						"visual",
+						"none"
+					],
+					"default": "visual",
+					"description": "Bell notification style. 'visual' shows a flash and status bar notification, 'none' disables all bell feedback."
 				}
 			}
 		},

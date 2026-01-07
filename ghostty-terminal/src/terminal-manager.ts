@@ -15,6 +15,7 @@ import {
 import type {
 	ExtensionMessage,
 	PanelWebviewMessage,
+	RuntimeConfig,
 	TerminalTheme,
 	WebviewMessage,
 } from "./types/messages";
@@ -149,6 +150,14 @@ export class TerminalManager implements vscode.Disposable {
 				});
 			}
 		}
+	}
+
+	/** Get runtime config from VS Code settings */
+	private getRuntimeConfig(): RuntimeConfig {
+		const bellStyle = vscode.workspace
+			.getConfiguration("ghostty")
+			.get<"visual" | "none">("bell", "visual");
+		return { bellStyle };
 	}
 
 	createTerminal(config?: Partial<TerminalConfig>): TerminalId | null {
@@ -482,6 +491,13 @@ export class TerminalManager implements vscode.Disposable {
 			theme,
 		});
 
+		// Send runtime config (bell style, etc.)
+		const config = this.getRuntimeConfig();
+		this.postToTerminal(id, {
+			type: "update-config",
+			config,
+		});
+
 		// Flush buffered data
 		for (const data of instance.dataQueue) {
 			this.postToTerminal(id, {
@@ -602,6 +618,12 @@ export class TerminalManager implements vscode.Disposable {
 	private handleTerminalBell(id: TerminalId): void {
 		const instance = this.terminals.get(id);
 		if (!instance) return;
+
+		// Check bell setting
+		const bellStyle = vscode.workspace
+			.getConfiguration("ghostty")
+			.get<string>("bell", "visual");
+		if (bellStyle === "none") return;
 
 		// Show brief status bar notification (less intrusive than info message)
 		// This provides audio feedback via VS Code's accessibility settings

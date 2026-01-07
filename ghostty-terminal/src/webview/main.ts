@@ -12,7 +12,11 @@ import {
 	isMacPlatform,
 	isSearchShortcut,
 } from "../keybinding-utils";
-import type { ExtensionMessage, TerminalTheme } from "../types/messages";
+import type {
+	ExtensionMessage,
+	RuntimeConfig,
+	TerminalTheme,
+} from "../types/messages";
 import type { TerminalId } from "../types/terminal";
 
 // Declare VS Code API (provided by webview host)
@@ -46,6 +50,9 @@ interface WebviewState {
 	let currentCwd: string | undefined = savedState?.currentCwd;
 	const pendingFileChecks = new Map<string, (exists: boolean) => void>();
 	let requestIdCounter = 0;
+
+	// Runtime config (updated via update-config message)
+	let runtimeConfig: RuntimeConfig = { bellStyle: "visual" };
 
 	// File existence cache with TTL (uses extracted utility for testability)
 	const fileCache = createFileCache(5000, 100); // 5s TTL, max 100 entries
@@ -682,6 +689,11 @@ interface WebviewState {
 				}
 				break;
 			}
+
+			case "update-config": {
+				runtimeConfig = msg.config;
+				break;
+			}
 		}
 	});
 
@@ -704,6 +716,7 @@ interface WebviewState {
 
 	// Handle bell notification (visual flash and notify extension for audio/system notification)
 	term.onBell(() => {
+		if (runtimeConfig.bellStyle === "none") return;
 		// Visual bell: brief flash of the terminal container
 		const container = document.getElementById("terminal-container");
 		if (container) {

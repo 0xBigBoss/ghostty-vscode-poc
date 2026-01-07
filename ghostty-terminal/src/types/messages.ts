@@ -6,6 +6,11 @@ export interface DisplaySettings {
 	fontSize?: number;
 }
 
+/** Runtime config for terminal behavior */
+export interface RuntimeConfig {
+	bellStyle: "visual" | "none";
+}
+
 /** Terminal theme colors */
 export interface TerminalTheme {
 	foreground?: string;
@@ -44,7 +49,8 @@ export type ExtensionMessage =
 	  }
 	| { type: "update-theme"; terminalId: TerminalId; theme: TerminalTheme }
 	| { type: "update-cwd"; terminalId: TerminalId; cwd: string }
-	| { type: "file-exists-result"; requestId: string; exists: boolean };
+	| { type: "file-exists-result"; requestId: string; exists: boolean }
+	| { type: "update-config"; config: RuntimeConfig };
 
 /** Extension -> Panel Webview (panel-specific messages) */
 export type PanelExtensionMessage =

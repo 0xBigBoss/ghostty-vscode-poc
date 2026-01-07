@@ -17,6 +17,7 @@ import {
 import type {
 	PanelExtensionMessage,
 	PanelWebviewMessage,
+	RuntimeConfig,
 	TerminalTheme,
 } from "../types/messages";
 import type { TerminalId } from "../types/terminal";
@@ -57,6 +58,9 @@ interface PanelTerminal {
 	// Terminal instances
 	const terminals = new Map<TerminalId, PanelTerminal>();
 	let activeTerminalId: TerminalId | null = null;
+
+	// Runtime config (updated via update-config message)
+	let runtimeConfig: RuntimeConfig = { bellStyle: "visual" };
 
 	// File existence cache
 	const fileCache = createFileCache(5000, 100);
@@ -315,6 +319,7 @@ interface PanelTerminal {
 
 		// Handle bell
 		term.onBell(() => {
+			if (runtimeConfig.bellStyle === "none") return;
 			container.classList.add("bell-flash");
 			setTimeout(() => container.classList.remove("bell-flash"), 150);
 			vscode.postMessage({ type: "terminal-bell", terminalId: id });
@@ -690,6 +695,11 @@ interface PanelTerminal {
 					pendingFileChecks.delete(msg.requestId);
 					callback(msg.exists);
 				}
+				break;
+			}
+
+			case "update-config": {
+				runtimeConfig = msg.config;
 				break;
 			}
 		}
