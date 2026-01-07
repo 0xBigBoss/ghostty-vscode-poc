@@ -57,7 +57,10 @@ export type PanelExtensionMessage =
 	  }
 	| { type: "remove-tab"; terminalId: TerminalId }
 	| { type: "rename-tab"; terminalId: TerminalId; title: string }
-	| { type: "activate-tab"; terminalId: TerminalId };
+	| { type: "activate-tab"; terminalId: TerminalId }
+	| { type: "next-tab" }
+	| { type: "previous-tab" }
+	| { type: "focus-terminal" };
 
 /** Webview -> Extension (editor terminals) */
 export type WebviewMessage =
@@ -103,4 +106,5 @@ export type PanelWebviewMessage =
 	| { type: "tab-close-requested"; terminalId: TerminalId }
 	| { type: "new-tab-requested" }
 	| { type: "new-tab-requested-with-title"; title: string; makeActive: boolean } // Restore with saved metadata
-	| { type: "tab-renamed"; terminalId: TerminalId; title: string }; // User edited title
+	| { type: "tab-renamed"; terminalId: TerminalId; title: string } // User edited title
+	| { type: "toggle-panel-requested" }; // Ctrl+` pressed in terminal

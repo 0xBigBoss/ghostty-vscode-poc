@@ -17,15 +17,26 @@
 		"onCommand:ghostty.newTerminalInEditor",
 		"onCommand:ghostty.newTerminalInPanel",
 		"onCommand:ghostty.togglePanel",
-		"onCommand:ghostty.newTerminalHere"
+		"onCommand:ghostty.newTerminalHere",
+		"onCommand:ghostty.nextTab",
+		"onCommand:ghostty.previousTab"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
-		"views": {
+		"viewsContainers": {
 			"panel": [
 				{
+					"id": "ghostty-terminal-panel",
+					"title": "Ghostty",
+					"icon": "$(terminal)"
+				}
+			]
+		},
+		"views": {
+			"ghostty-terminal-panel": [
+				{
 					"id": "ghosttyTerminalPanel",
-					"name": "Ghostty",
+					"name": "Terminal",
 					"type": "webview"
 				}
 			]
@@ -50,6 +61,14 @@
 			{
 				"command": "ghostty.newTerminalHere",
 				"title": "Ghostty: New Terminal Here"
+			},
+			{
+				"command": "ghostty.nextTab",
+				"title": "Ghostty: Next Terminal Tab"
+			},
+			{
+				"command": "ghostty.previousTab",
+				"title": "Ghostty: Previous Terminal Tab"
 			}
 		],
 		"menus": {
@@ -88,19 +107,37 @@
 		},
 		"keybindings": [
 			{
+				"command": "-workbench.action.terminal.toggleTerminal",
+				"key": "ctrl+`"
+			},
+			{
+				"command": "-workbench.action.terminal.new",
+				"key": "ctrl+shift+`"
+			},
+			{
 				"command": "ghostty.togglePanel",
-				"key": "ctrl+`",
-				"mac": "ctrl+`"
+				"key": "ctrl+`"
 			},
 			{
 				"command": "ghostty.newTerminal",
-				"key": "ctrl+shift+`",
-				"mac": "ctrl+shift+`"
+				"key": "ctrl+shift+`"
 			},
 			{
 				"command": "ghostty.newTerminalInEditor",
 				"key": "ctrl+shift+t",
 				"mac": "cmd+shift+t"
+			},
+			{
+				"command": "ghostty.nextTab",
+				"key": "ctrl+shift+]",
+				"mac": "cmd+shift+]",
+				"when": "focusedView == 'ghosttyTerminalPanel'"
+			},
+			{
+				"command": "ghostty.previousTab",
+				"key": "ctrl+shift+[",
+				"mac": "cmd+shift+[",
+				"when": "focusedView == 'ghosttyTerminalPanel'"
 			}
 		]
 	},

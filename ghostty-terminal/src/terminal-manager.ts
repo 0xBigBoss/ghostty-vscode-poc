@@ -335,6 +335,9 @@ export class TerminalManager implements vscode.Disposable {
 			case "tab-renamed":
 				this.handleTabRenamed(message.terminalId, message.title);
 				break;
+			case "toggle-panel-requested":
+				// Handled by panel-view-provider, not terminal-manager
+				break;
 			default:
 				// Handle common WebviewMessage types
 				this.handleWebviewMessage(message);

@@ -437,6 +437,44 @@ interface PanelTerminal {
 		saveState();
 	}
 
+	// Get ordered list of terminal IDs from tab DOM order
+	function getTabOrder(): TerminalId[] {
+		const tabs = tabList.querySelectorAll(".tab");
+		const order: TerminalId[] = [];
+		for (let i = 0; i < tabs.length; i++) {
+			const tab = tabs[i] as HTMLElement;
+			const id = tab.dataset.terminalId as TerminalId;
+			if (id) order.push(id);
+		}
+		return order;
+	}
+
+	// Navigate to next tab (wraps around)
+	function nextTab(): void {
+		const order = getTabOrder();
+		if (order.length === 0) return;
+		if (!activeTerminalId) {
+			activateTerminal(order[0]);
+			return;
+		}
+		const currentIndex = order.indexOf(activeTerminalId);
+		const nextIndex = (currentIndex + 1) % order.length;
+		activateTerminal(order[nextIndex]);
+	}
+
+	// Navigate to previous tab (wraps around)
+	function previousTab(): void {
+		const order = getTabOrder();
+		if (order.length === 0) return;
+		if (!activeTerminalId) {
+			activateTerminal(order[order.length - 1]);
+			return;
+		}
+		const currentIndex = order.indexOf(activeTerminalId);
+		const prevIndex = (currentIndex - 1 + order.length) % order.length;
+		activateTerminal(order[prevIndex]);
+	}
+
 	// Remove a terminal
 	function removeTerminal(id: TerminalId): void {
 		const terminal = terminals.get(id);
@@ -542,6 +580,25 @@ interface PanelTerminal {
 				activateTerminal(msg.terminalId);
 				break;
 
+			case "next-tab":
+				nextTab();
+				break;
+
+			case "previous-tab":
+				previousTab();
+				break;
+
+			case "focus-terminal": {
+				if (activeTerminalId) {
+					const terminal = terminals.get(activeTerminalId);
+					if (terminal) {
+						const term = terminal.term as unknown as { focus?: () => void };
+						term.focus?.();
+					}
+				}
+				break;
+			}
+
 			case "pty-data": {
 				const terminal = terminals.get(msg.terminalId);
 				if (terminal) {
@@ -644,6 +701,35 @@ interface PanelTerminal {
 			type: "new-tab-requested",
 		} satisfies PanelWebviewMessage);
 	});
+
+	// ==========================================================================
+	// Keyboard shortcut interception
+	// ==========================================================================
+	// Some keybindings defined in package.json need to be intercepted here
+	// because the terminal captures keyboard events. Keep these in sync:
+	//
+	// | package.json keybinding | webview interception |
+	// |-------------------------|----------------------|
+	// | ctrl+` (togglePanel)    | YES - intercept here |
+	// | ctrl+shift+` (newTerm)  | NO - doesn't conflict|
+	// | cmd+shift+[ (prevTab)   | NO - VS Code handles |
+	// | cmd+shift+] (nextTab)   | NO - VS Code handles |
+	// ==========================================================================
+	document.addEventListener(
+		"keydown",
+		(e: KeyboardEvent) => {
+			// Ctrl+` (or Cmd+` on Mac) - toggle panel
+			if (e.key === "`" && e.ctrlKey && !e.shiftKey && !e.altKey) {
+				e.preventDefault();
+				e.stopPropagation();
+				vscode.postMessage({
+					type: "toggle-panel-requested",
+				} satisfies PanelWebviewMessage);
+				return;
+			}
+		},
+		true,
+	); // Use capture phase to intercept before terminal
 
 	// Send panel-ready to extension
 	vscode.postMessage({ type: "panel-ready" } satisfies PanelWebviewMessage);

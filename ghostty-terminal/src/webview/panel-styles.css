@@ -10,10 +10,7 @@ body {
 	height: 100%;
 	overflow: hidden;
 	/* Use VS Code editor background (consistent with font settings priority) */
-	background-color: var(
-		--vscode-editor-background,
-		var(--vscode-panel-background, #1e1e1e)
-	);
+	background-color: var(--vscode-editor-background, var(--vscode-panel-background));
 }
 
 /* Tab bar styling */
@@ -22,8 +19,11 @@ body {
 	align-items: center;
 	height: 28px;
 	padding: 0 4px;
-	background-color: var(--vscode-tab-inactiveBackground, #2d2d2d);
-	border-bottom: 1px solid var(--vscode-tab-border, #252526);
+	background-color: var(
+		--vscode-editorGroupHeader-tabsBackground,
+		var(--vscode-tab-inactiveBackground)
+	);
+	border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder, var(--vscode-tab-border, transparent));
 	overflow-x: auto;
 	overflow-y: hidden;
 }
@@ -49,10 +49,10 @@ body {
 	min-width: 80px;
 	max-width: 160px;
 	height: 24px;
-	background-color: var(--vscode-tab-inactiveBackground, #2d2d2d);
-	color: var(--vscode-tab-inactiveForeground, #969696);
+	background-color: var(--vscode-tab-inactiveBackground);
+	color: var(--vscode-tab-inactiveForeground);
 	border: none;
-	border-right: 1px solid var(--vscode-tab-border, #252526);
+	border-right: 1px solid var(--vscode-tab-border, transparent);
 	cursor: pointer;
 	font-size: 12px;
 	font-family: var(--vscode-font-family, sans-serif);
@@ -61,13 +61,14 @@ body {
 }
 
 .tab:hover {
-	background-color: var(--vscode-tab-hoverBackground, #383838);
+	background-color: var(--vscode-tab-hoverBackground, var(--vscode-list-hoverBackground));
+	color: var(--vscode-tab-hoverForeground, var(--vscode-tab-inactiveForeground));
 }
 
 .tab.active {
-	background-color: var(--vscode-tab-activeBackground, #1e1e1e);
-	color: var(--vscode-tab-activeForeground, #ffffff);
-	border-bottom: 2px solid var(--vscode-tab-activeBorderTop, #007acc);
+	background-color: var(--vscode-tab-activeBackground);
+	color: var(--vscode-tab-activeForeground);
+	border-bottom: 2px solid var(--vscode-tab-activeBorderTop, var(--vscode-focusBorder));
 }
 
 .tab-title {
@@ -84,7 +85,7 @@ body {
 	height: 16px;
 	border: none;
 	background: transparent;
-	color: var(--vscode-tab-inactiveForeground, #969696);
+	color: inherit;
 	cursor: pointer;
 	border-radius: 2px;
 	opacity: 0;
@@ -97,10 +98,7 @@ body {
 }
 
 .tab-close:hover {
-	background-color: var(
-		--vscode-toolbar-hoverBackground,
-		rgba(90, 93, 94, 0.31)
-	);
+	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
 #new-tab-btn {
@@ -112,7 +110,7 @@ body {
 	margin-left: 4px;
 	border: none;
 	background: transparent;
-	color: var(--vscode-foreground, #cccccc);
+	color: var(--vscode-foreground);
 	cursor: pointer;
 	border-radius: 4px;
 	font-size: 16px;
@@ -120,10 +118,7 @@ body {
 }
 
 #new-tab-btn:hover {
-	background-color: var(
-		--vscode-toolbar-hoverBackground,
-		rgba(90, 93, 94, 0.31)
-	);
+	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
 /* Terminals container */
@@ -178,9 +173,9 @@ body {
 
 /* Drag-and-drop visual feedback */
 .terminal-container.drag-over {
-	outline: 2px dashed var(--vscode-focusBorder, #007fd4);
+	outline: 2px dashed var(--vscode-focusBorder);
 	outline-offset: -2px;
-	background-color: rgba(0, 127, 212, 0.1);
+	background-color: color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent);
 }
 
 /* Search overlay */
@@ -196,10 +191,10 @@ body {
 	align-items: center;
 	gap: 4px;
 	padding: 4px 8px;
-	background-color: var(--vscode-input-background, #3c3c3c);
-	border: 1px solid var(--vscode-input-border, #3c3c3c);
+	background-color: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border, var(--vscode-input-background));
 	border-radius: 4px;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+	box-shadow: var(--vscode-widget-shadow, 0 2px 8px rgba(0, 0, 0, 0.15));
 }
 
 #search-overlay #search-input {
@@ -207,24 +202,24 @@ body {
 	padding: 4px 8px;
 	border: none;
 	outline: none;
-	background-color: var(--vscode-input-background, #3c3c3c);
-	color: var(--vscode-input-foreground, #cccccc);
+	background-color: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
 	font-family: var(--vscode-font-family, sans-serif);
 	font-size: 13px;
 }
 
 #search-overlay #search-input::placeholder {
-	color: var(--vscode-input-placeholderForeground, #a0a0a0);
+	color: var(--vscode-input-placeholderForeground);
 }
 
 #search-overlay #search-input:focus {
-	outline: 1px solid var(--vscode-focusBorder, #007fd4);
+	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
 }
 
 #search-overlay #search-results-count {
 	font-size: 12px;
-	color: var(--vscode-descriptionForeground, #a0a0a0);
+	color: var(--vscode-descriptionForeground);
 	min-width: 70px;
 	text-align: center;
 }
@@ -233,24 +228,18 @@ body {
 	padding: 2px 6px;
 	border: none;
 	background-color: transparent;
-	color: var(--vscode-foreground, #cccccc);
+	color: var(--vscode-foreground);
 	cursor: pointer;
 	font-size: 12px;
 	border-radius: 2px;
 }
 
 #search-overlay button:hover {
-	background-color: var(
-		--vscode-list-hoverBackground,
-		rgba(255, 255, 255, 0.1)
-	);
+	background-color: var(--vscode-list-hoverBackground);
 }
 
 #search-overlay button:active {
-	background-color: var(
-		--vscode-list-activeSelectionBackground,
-		rgba(255, 255, 255, 0.2)
-	);
+	background-color: var(--vscode-list-activeSelectionBackground);
 }
 
 /* Empty state */
@@ -260,7 +249,7 @@ body {
 	align-items: center;
 	justify-content: center;
 	height: 100%;
-	color: var(--vscode-descriptionForeground, #969696);
+	color: var(--vscode-descriptionForeground);
 	font-family: var(--vscode-font-family, sans-serif);
 }
 
@@ -275,8 +264,8 @@ body {
 #empty-state button {
 	padding: 6px 12px;
 	border: none;
-	background-color: var(--vscode-button-background, #0e639c);
-	color: var(--vscode-button-foreground, #ffffff);
+	background-color: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
 	cursor: pointer;
 	border-radius: 4px;
 	font-size: 13px;
@@ -284,5 +273,5 @@ body {
 }
 
 #empty-state button:hover {
-	background-color: var(--vscode-button-hoverBackground, #1177bb);
+	background-color: var(--vscode-button-hoverBackground);
 }

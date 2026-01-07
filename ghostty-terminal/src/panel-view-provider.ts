@@ -111,6 +111,11 @@ export class GhosttyPanelViewProvider implements vscode.WebviewViewProvider {
 						}
 						this._pendingTerminals = [];
 					}
+					// Handle toggle-panel-requested by executing the toggle command
+					if (message.type === "toggle-panel-requested") {
+						vscode.commands.executeCommand("ghostty.togglePanel");
+						return;
+					}
 					// Route all messages to the handler
 					this._messageHandler?.(message);
 				},
@@ -160,6 +165,21 @@ export class GhosttyPanelViewProvider implements vscode.WebviewViewProvider {
 			type: "activate-tab",
 			terminalId: id,
 		});
+	}
+
+	/** Navigate to next tab */
+	nextTab(): void {
+		this.postMessage({ type: "next-tab" });
+	}
+
+	/** Navigate to previous tab */
+	previousTab(): void {
+		this.postMessage({ type: "previous-tab" });
+	}
+
+	/** Focus the active terminal */
+	focusTerminal(): void {
+		this.postMessage({ type: "focus-terminal" });
 	}
 
 	/** Check if the panel is visible */

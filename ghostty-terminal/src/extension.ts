@@ -95,10 +95,8 @@ export function activate(context: vscode.ExtensionContext) {
 		// Toggle panel (show/hide, auto-create terminal if empty)
 		vscode.commands.registerCommand("ghostty.togglePanel", async () => {
 			if (panelProvider!.isVisible) {
-				// Hide panel by focusing away
-				await vscode.commands.executeCommand(
-					"workbench.action.focusActiveEditorGroup",
-				);
+				// Hide the panel
+				await vscode.commands.executeCommand("workbench.action.closePanel");
 			} else {
 				// Show panel
 				await panelProvider!.show();
@@ -109,6 +107,8 @@ export function activate(context: vscode.ExtensionContext) {
 						location: "panel",
 					});
 				}
+				// Focus the active terminal
+				panelProvider!.focusTerminal();
 			}
 		}),
 
@@ -119,6 +119,14 @@ export function activate(context: vscode.ExtensionContext) {
 				await createTerminalWithLocation(getDefaultLocation(), resolveCwd(uri));
 			},
 		),
+
+		// Tab navigation
+		vscode.commands.registerCommand("ghostty.nextTab", () => {
+			panelProvider?.nextTab();
+		}),
+		vscode.commands.registerCommand("ghostty.previousTab", () => {
+			panelProvider?.previousTab();
+		}),
 	);
 }
 
