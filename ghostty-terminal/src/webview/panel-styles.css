@@ -10,7 +10,10 @@ body {
 	height: 100%;
 	overflow: hidden;
 	/* Use VS Code editor background (consistent with font settings priority) */
-	background-color: var(--vscode-editor-background, var(--vscode-panel-background));
+	background-color: var(
+		--vscode-editor-background,
+		var(--vscode-panel-background)
+	);
 }
 
 /* Tab bar styling */
@@ -23,7 +26,11 @@ body {
 		--vscode-editorGroupHeader-tabsBackground,
 		var(--vscode-tab-inactiveBackground)
 	);
-	border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder, var(--vscode-tab-border, transparent));
+	border-bottom: 1px solid
+		var(
+			--vscode-editorGroupHeader-tabsBorder,
+			var(--vscode-tab-border, transparent)
+		);
 	overflow-x: auto;
 	overflow-y: hidden;
 }
@@ -61,14 +68,21 @@ body {
 }
 
 .tab:hover {
-	background-color: var(--vscode-tab-hoverBackground, var(--vscode-list-hoverBackground));
-	color: var(--vscode-tab-hoverForeground, var(--vscode-tab-inactiveForeground));
+	background-color: var(
+		--vscode-tab-hoverBackground,
+		var(--vscode-list-hoverBackground)
+	);
+	color: var(
+		--vscode-tab-hoverForeground,
+		var(--vscode-tab-inactiveForeground)
+	);
 }
 
 .tab.active {
 	background-color: var(--vscode-tab-activeBackground);
 	color: var(--vscode-tab-activeForeground);
-	border-bottom: 2px solid var(--vscode-tab-activeBorderTop, var(--vscode-focusBorder));
+	border-bottom: 2px solid
+		var(--vscode-tab-activeBorderTop, var(--vscode-focusBorder));
 }
 
 .tab-title {
@@ -175,7 +189,11 @@ body {
 .terminal-container.drag-over {
 	outline: 2px dashed var(--vscode-focusBorder);
 	outline-offset: -2px;
-	background-color: color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent);
+	background-color: color-mix(
+		in srgb,
+		var(--vscode-focusBorder) 10%,
+		transparent
+	);
 }
 
 /* Search overlay */

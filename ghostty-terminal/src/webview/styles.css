@@ -10,7 +10,10 @@ body {
 	height: 100%;
 	overflow: hidden;
 	/* Use VS Code editor background (consistent with font settings priority) */
-	background-color: var(--vscode-editor-background, var(--vscode-panel-background));
+	background-color: var(
+		--vscode-editor-background,
+		var(--vscode-panel-background)
+	);
 }
 
 #terminal-container {
@@ -47,7 +50,11 @@ body {
 #terminal-container.drag-over {
 	outline: 2px dashed var(--vscode-focusBorder);
 	outline-offset: -2px;
-	background-color: color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent);
+	background-color: color-mix(
+		in srgb,
+		var(--vscode-focusBorder) 10%,
+		transparent
+	);
 }
 
 /* Search overlay */

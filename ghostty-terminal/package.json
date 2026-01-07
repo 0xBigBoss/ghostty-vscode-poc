@@ -111,6 +111,11 @@
 					],
 					"default": "visual",
 					"description": "Bell notification style. 'visual' shows a flash and status bar notification, 'none' disables all bell feedback."
+				},
+				"ghostty.notifications": {
+					"type": "boolean",
+					"default": true,
+					"description": "Show VS Code notifications from terminal applications (OSC 9 escape sequences)."
 				}
 			}
 		},

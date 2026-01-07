@@ -422,6 +422,27 @@ export class TerminalManager implements vscode.Disposable {
 		return undefined;
 	}
 
+	/** Parse OSC 9 escape sequence for notifications (iTerm2 style) */
+	private parseOSC9(data: string): string | undefined {
+		// OSC 9 format: ESC ] 9 ; message BEL (or ST)
+		// ESC = \x1b, BEL = \x07, ST = ESC \
+		const match = data.match(/\x1b\]9;([^\x07\x1b]*)(?:\x07|\x1b\\)/);
+		if (match) {
+			return match[1];
+		}
+		return undefined;
+	}
+
+	/** Show VS Code notification for OSC 9 message */
+	private handleOSC9Notification(message: string): void {
+		const enabled = vscode.workspace
+			.getConfiguration("ghostty")
+			.get<boolean>("notifications", true);
+		if (!enabled) return;
+
+		vscode.window.showInformationMessage(message);
+	}
+
 	private handlePtyData(id: TerminalId, data: string): void {
 		const instance = this.terminals.get(id);
 		if (!instance) return;
@@ -438,6 +459,12 @@ export class TerminalManager implements vscode.Disposable {
 					cwd,
 				});
 			}
+		}
+
+		// Check for OSC 9 notification
+		const notification = this.parseOSC9(data);
+		if (notification) {
+			this.handleOSC9Notification(notification);
 		}
 
 		if (!instance.ready) {
