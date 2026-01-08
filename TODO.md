@@ -17,19 +17,12 @@
   - search-controller.ts (254 lines)
   - theme-utils.ts (100 lines)
 
-## Pending
-- [ ] Export proper TypeScript types from ghostty-web (requires ghostty-web changes)
-- [ ] Implement split panes (large feature)
-
-## Notes
-- Many features were already implemented but not marked in backlog
-- Split panes is the largest remaining feature
-- Code quality items (module splitting, types) can be done incrementally
-
 ## Blocked
-(none)
+- [ ] Export proper TypeScript types from ghostty-web (blocked: requires ghostty-web module changes)
+- [ ] Implement split panes (large feature - requires significant UI/state management work)
 
 ## Notes
 - Many features were already implemented but not marked in backlog
-- Split panes is the largest remaining feature
+- Split panes is a substantial feature requiring horizontal/vertical split UI, multi-pane state management
+- TypeScript types export blocked on external ghostty-web repository
 - Code quality items (module splitting, types) can be done incrementally
