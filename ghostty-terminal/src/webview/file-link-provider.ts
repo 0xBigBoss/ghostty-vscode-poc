@@ -148,12 +148,21 @@ export function createFileLinkProvider(
 
 			// Validate and create links asynchronously
 			const validateAndCreateLinks = async () => {
+				const cwd = getCwd();
+
+				// Check all paths in parallel to benefit from batching
+				const existsResults = await Promise.all(
+					matches.map((m) => {
+						const absolutePath = resolvePath(m.path, cwd);
+						return checkFileExists(absolutePath);
+					}),
+				);
+
+				// Filter to only matches where file exists and create links
 				const links: TerminalLink[] = [];
-				for (const m of matches) {
-					const cwd = getCwd();
-					const absolutePath = resolvePath(m.path, cwd);
-					const exists = await checkFileExists(absolutePath);
-					if (exists) {
+				for (let i = 0; i < matches.length; i++) {
+					if (existsResults[i]) {
+						const m = matches[i];
 						links.push({
 							text: m.text,
 							range: {

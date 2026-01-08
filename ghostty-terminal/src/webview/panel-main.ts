@@ -66,7 +66,10 @@ interface PanelTerminal {
 	const fileCache = createFileCache(5000, 100);
 
 	// Batching state for file existence checks (reduced round-trips)
-	const batchPendingPaths = new Map<string, Array<(exists: boolean) => void>>();
+	// Pending callbacks indexed by path - shared across all in-flight batches
+	const pendingCallbacks = new Map<string, Array<(exists: boolean) => void>>();
+	// Paths queued for the next batch (not yet sent)
+	const batchQueue = new Set<string>();
 	let batchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 	const BATCH_DEBOUNCE_MS = 50;
 
@@ -171,24 +174,31 @@ interface PanelTerminal {
 
 	// Flush batch of file existence checks to extension
 	function flushBatchFileChecks(terminalId: TerminalId): void {
-		if (batchPendingPaths.size === 0) return;
+		if (batchQueue.size === 0) return;
 
-		const paths = Array.from(batchPendingPaths.keys());
+		// Snapshot paths to send and clear the queue
+		const pathsToSend = Array.from(batchQueue);
+		batchQueue.clear();
+
 		vscode.postMessage({
 			type: "batch-check-file-exists",
 			terminalId,
-			paths,
+			paths: pathsToSend,
 		});
 
-		// Set timeout for batch - if no response, resolve all as false
+		// Set timeout for this batch - if no response within 2s, resolve these paths as false
+		// Capture the paths in closure so timeout only affects this batch's paths
 		setTimeout(() => {
-			for (const [path, callbacks] of batchPendingPaths) {
-				fileCache.set(path, false);
-				for (const cb of callbacks) {
-					cb(false);
+			for (const path of pathsToSend) {
+				const callbacks = pendingCallbacks.get(path);
+				if (callbacks) {
+					pendingCallbacks.delete(path);
+					fileCache.set(path, false);
+					for (const cb of callbacks) {
+						cb(false);
+					}
 				}
 			}
-			batchPendingPaths.clear();
 		}, 2000);
 	}
 
@@ -203,13 +213,17 @@ interface PanelTerminal {
 		}
 
 		return new Promise((resolve) => {
-			// Add to batch queue
-			const existing = batchPendingPaths.get(path);
+			// Add callback to pending map
+			const existing = pendingCallbacks.get(path);
 			if (existing) {
+				// Path already has pending callbacks, just add this one
 				existing.push(resolve);
 			} else {
-				batchPendingPaths.set(path, [resolve]);
+				pendingCallbacks.set(path, [resolve]);
 			}
+
+			// Add to batch queue (Set deduplicates)
+			batchQueue.add(path);
 
 			// Reset debounce timer
 			if (batchDebounceTimer) {
@@ -719,9 +733,9 @@ interface PanelTerminal {
 			case "batch-file-exists-result": {
 				// Batch file existence response
 				for (const result of msg.results) {
-					const callbacks = batchPendingPaths.get(result.path);
+					const callbacks = pendingCallbacks.get(result.path);
 					if (callbacks) {
-						batchPendingPaths.delete(result.path);
+						pendingCallbacks.delete(result.path);
 						fileCache.set(result.path, result.exists);
 						for (const cb of callbacks) {
 							cb(result.exists);
