@@ -16,7 +16,7 @@
 ## Performance
 
 - [ ] Batch `checkFileExists` requests (queue paths, single round-trip)
-- [ ] Add LRU cache for file existence results
+- [x] Add LRU cache for file existence results (implemented in file-cache.ts)
 - [ ] Profile and optimize link detection regex
 
 ## Features
@@ -25,9 +25,9 @@
 - [ ] Split panes
 - [x] Copy/paste context menu (browser default)
 - [x] Search in terminal (Cmd+F)
-- [ ] Scrollback persistence across window reloads
+- [x] Scrollback persistence across window reloads
 - [x] Drag-and-drop files into terminal (paste path)
-- [ ] Bracketed paste mode support
+- [x] Bracketed paste mode support (handled by xterm.js when shell requests DECSET 2004)
 - [x] Bell notification (visual/audio)
 - [x] OSC 9 notifications
 
@@ -43,4 +43,4 @@
 - [x] Verify ghostty-web selection API works correctly
 - [x] Double-click to select word
 - [x] Triple-click to select line
-- [ ] Shift+click to extend selection
+- [x] Shift+click to extend selection (native xterm.js feature)
