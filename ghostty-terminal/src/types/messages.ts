@@ -49,7 +49,10 @@ export type ExtensionMessage =
 	  }
 	| { type: "update-theme"; terminalId: TerminalId; theme: TerminalTheme }
 	| { type: "update-cwd"; terminalId: TerminalId; cwd: string }
-	| { type: "file-exists-result"; requestId: string; exists: boolean }
+	| {
+			type: "batch-file-exists-result";
+			results: Array<{ path: string; exists: boolean }>;
+	  }
 	| { type: "update-config"; config: RuntimeConfig };
 
 /** Extension -> Panel Webview (panel-specific messages) */
@@ -92,10 +95,9 @@ export type WebviewMessage =
 			column?: number;
 	  }
 	| {
-			type: "check-file-exists";
+			type: "batch-check-file-exists";
 			terminalId: TerminalId;
-			requestId: string;
-			path: string;
+			paths: string[];
 	  }
 	| { type: "terminal-bell"; terminalId: TerminalId };
 

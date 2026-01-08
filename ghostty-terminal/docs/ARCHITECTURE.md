@@ -97,6 +97,7 @@ This document describes the architecture of the Ghostty Terminal VS Code extensi
 | `update-theme` | Color theme changed |
 | `update-cwd` | Working directory changed |
 | `update-config` | Runtime config (bell, etc.) |
+| `batch-file-exists-result` | Batch file existence check results |
 
 ### Webview → Extension
 
@@ -108,7 +109,7 @@ This document describes the architecture of the Ghostty Terminal VS Code extensi
 | `terminal-bell` | Bell character received |
 | `open-url` | User clicked URL |
 | `open-file` | User clicked file path |
-| `check-file-exists` | Validate file path exists |
+| `batch-check-file-exists` | Batch validate file paths exist (debounced) |
 
 ### Panel-Specific Messages
 

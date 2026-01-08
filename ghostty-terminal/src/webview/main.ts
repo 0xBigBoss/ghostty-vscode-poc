@@ -19,6 +19,14 @@ import type {
 } from "../types/messages";
 import type { TerminalId } from "../types/terminal";
 
+// Import modular components
+import {
+	createFileLinkProvider,
+	FILE_PATH_PATTERN_SINGLE,
+} from "./file-link-provider";
+import { createSearchController } from "./search-controller";
+import { createThemeObserver, getVSCodeThemeColors } from "./theme-utils";
+
 // Declare VS Code API (provided by webview host)
 declare function acquireVsCodeApi(): {
 	postMessage(message: unknown): void;
@@ -48,8 +56,11 @@ interface WebviewState {
 
 	// State for file path detection
 	let currentCwd: string | undefined = savedState?.currentCwd;
-	const pendingFileChecks = new Map<string, (exists: boolean) => void>();
-	let requestIdCounter = 0;
+
+	// Batching state for file existence checks (reduced round-trips)
+	const batchPendingPaths = new Map<string, Array<(exists: boolean) => void>>();
+	let batchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	const BATCH_DEBOUNCE_MS = 50; // Wait 50ms to collect paths before sending batch
 
 	// Runtime config (updated via update-config message)
 	let runtimeConfig: RuntimeConfig = { bellStyle: "visual" };
@@ -91,12 +102,30 @@ interface WebviewState {
 		throw new Error("ghostty-web Terminal not found");
 	}
 
-	// File path pattern: matches paths like src/foo.ts:42:10 or ./bar.js(10,5)
-	// Captures: path, optional line, optional column
-	const _FILE_PATH_PATTERN =
-		/(?:^|[\s'"(])((\.{0,2}\/)?[\w./-]+\.[a-zA-Z0-9]+)(?:[:(](\d+)(?:[,:](\d+))?[\])]?)?/g;
+	// Flush batch of file existence checks to extension
+	function flushBatchFileChecks(): void {
+		if (batchPendingPaths.size === 0) return;
 
-	// Check if a file exists via extension (with caching)
+		const paths = Array.from(batchPendingPaths.keys());
+		vscode.postMessage({
+			type: "batch-check-file-exists",
+			terminalId: TERMINAL_ID,
+			paths,
+		});
+
+		// Set timeout for batch - if no response, resolve all as false
+		setTimeout(() => {
+			for (const [path, callbacks] of batchPendingPaths) {
+				fileCache.set(path, false);
+				for (const cb of callbacks) {
+					cb(false);
+				}
+			}
+			batchPendingPaths.clear();
+		}, 2000);
+	}
+
+	// Check if a file exists via extension (with caching and batching)
 	function checkFileExists(path: string): Promise<boolean> {
 		// Check cache first (uses extracted utility)
 		const cached = fileCache.get(path);
@@ -105,27 +134,23 @@ interface WebviewState {
 		}
 
 		return new Promise((resolve) => {
-			const requestId = `req-${requestIdCounter++}`;
-			pendingFileChecks.set(requestId, (exists: boolean) => {
-				// Cache the result
-				fileCache.set(path, exists);
-				resolve(exists);
-			});
-			vscode.postMessage({
-				type: "check-file-exists",
-				terminalId: TERMINAL_ID,
-				requestId,
-				path,
-			});
-			// Timeout after 2 seconds
-			setTimeout(() => {
-				if (pendingFileChecks.has(requestId)) {
-					pendingFileChecks.delete(requestId);
-					// Cache negative result on timeout
-					fileCache.set(path, false);
-					resolve(false);
-				}
-			}, 2000);
+			// Add to batch queue
+			const existing = batchPendingPaths.get(path);
+			if (existing) {
+				// Path already queued, just add callback
+				existing.push(resolve);
+			} else {
+				batchPendingPaths.set(path, [resolve]);
+			}
+
+			// Reset debounce timer
+			if (batchDebounceTimer) {
+				clearTimeout(batchDebounceTimer);
+			}
+			batchDebounceTimer = setTimeout(() => {
+				batchDebounceTimer = null;
+				flushBatchFileChecks();
+			}, BATCH_DEBOUNCE_MS);
 		});
 	}
 
@@ -162,12 +187,8 @@ interface WebviewState {
 		onLinkClick: (url: string, event: MouseEvent) => {
 			// Only open links when Ctrl/Cmd is held (standard terminal behavior)
 			if (event.ctrlKey || event.metaKey) {
-				// Check if this looks like a file path (Unix or Windows)
-				// Unix: /path/to/file.ts, ./rel/path.ts, ../parent/file.ts
-				// Windows: C:\path\to\file.ts, C:/path/to/file.ts
-				const fileMatch = url.match(
-					/^((?:[a-zA-Z]:)?(?:\.{0,2}[\\/])?[\w.\\/-]+\.[a-zA-Z0-9]+)(?:[:(](\d+)(?:[,:](\d+))?[\])]?)?$/,
-				);
+				// Check if this looks like a file path (uses pre-compiled pattern)
+				const fileMatch = url.match(FILE_PATH_PATTERN_SINGLE);
 				if (fileMatch) {
 					const [, filePath, lineStr, colStr] = fileMatch;
 					const line = lineStr ? parseInt(lineStr, 10) : undefined;
@@ -207,409 +228,31 @@ interface WebviewState {
 		});
 	});
 
-	// FilePathLinkProvider: detects file paths in terminal output and opens them on Cmd/Ctrl+Click
+	// Create and register file path link provider (uses extracted module)
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const filePathLinkProvider = {
-		provideLinks(
-			y: number,
-			callback: (links: unknown[] | undefined) => void,
-		): void {
-			// Get the line text from terminal buffer
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const buffer = (term as any).buffer;
-			if (!buffer?.active) {
-				callback(undefined);
-				return;
-			}
-			const line = buffer.active.getLine(y);
-			if (!line) {
-				callback(undefined);
-				return;
-			}
-			const lineText = line.translateToString(true);
-			if (!lineText) {
-				callback(undefined);
-				return;
-			}
+	const filePathLinkProvider = createFileLinkProvider((term as any).buffer, {
+		getCwd: () => currentCwd,
+		checkFileExists,
+		onFileClick: handleFileLinkClick,
+	});
 
-			// Find file path matches (Unix and Windows)
-			// Unix: /path/to/file.ts, ./rel/path.ts, ../parent/file.ts
-			// Windows: C:\path\to\file.ts, C:/path/to/file.ts
-			// With optional :line:col or (line,col) suffix
-			const pathPattern =
-				/(?:^|[\s'"(])((?:[a-zA-Z]:)?(?:\.{0,2}[\\/])?[\w.\\/-]+\.[a-zA-Z0-9]+)(?:[:(](\d+)(?:[,:](\d+))?[\])]?)?/g;
-			const matches: Array<{
-				text: string;
-				path: string;
-				line?: number;
-				column?: number;
-				startX: number;
-				endX: number;
-			}> = [];
-
-			let match;
-			while ((match = pathPattern.exec(lineText)) !== null) {
-				const fullMatch = match[0];
-				const path = match[1];
-				const lineNum = match[2] ? parseInt(match[2], 10) : undefined;
-				const colNum = match[3] ? parseInt(match[3], 10) : undefined;
-
-				// Calculate start position (skip leading whitespace/quote)
-				let startX = match.index;
-				// Skip prefix character if not start of path
-				const firstChar = fullMatch[0];
-				if (
-					firstChar !== "." &&
-					firstChar !== "/" &&
-					firstChar !== "\\" &&
-					!/[a-zA-Z]/.test(firstChar)
-				) {
-					startX += 1; // Skip the prefix character
-				}
-
-				matches.push({
-					text:
-						path +
-						(lineNum ? `:${lineNum}` : "") +
-						(colNum ? `:${colNum}` : ""),
-					path,
-					line: lineNum,
-					column: colNum,
-					startX,
-					endX:
-						startX +
-						path.length +
-						(lineNum ? String(lineNum).length + 1 : 0) +
-						(colNum ? String(colNum).length + 1 : 0),
-				});
-			}
-
-			if (matches.length === 0) {
-				callback(undefined);
-				return;
-			}
-
-			// Validate and create links asynchronously
-			const validateAndCreateLinks = async () => {
-				const links: unknown[] = [];
-				for (const m of matches) {
-					const absolutePath = resolvePath(m.path);
-					const exists = await checkFileExists(absolutePath);
-					if (exists) {
-						links.push({
-							text: m.text,
-							range: {
-								start: { x: m.startX, y },
-								end: { x: m.endX, y },
-							},
-							activate: (event: MouseEvent) => {
-								// Only open on Ctrl/Cmd+Click (standard terminal behavior)
-								if (event.ctrlKey || event.metaKey) {
-									handleFileLinkClick(m.path, m.line, m.column);
-								}
-							},
-						});
-					}
-				}
-				callback(links.length > 0 ? links : undefined);
-			};
-
-			validateAndCreateLinks();
-		},
-	};
-
-	// Register the file path link provider
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	if (typeof (term as any).registerLinkProvider === "function") {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		(term as any).registerLinkProvider(filePathLinkProvider);
 	}
 
-	// Read theme colors from VS Code CSS variables
-	// Priority: editor colors (consistent with font settings), then terminal colors as fallback
-	// Note: VS Code has a known bug where webview CSS vars persist across theme changes (#96621)
-	function getVSCodeThemeColors(): TerminalTheme {
-		const style = getComputedStyle(document.documentElement);
-		const get = (name: string, ...fallbacks: string[]): string | undefined => {
-			let value = style.getPropertyValue(name).trim();
-			if (!value) {
-				for (const fallback of fallbacks) {
-					value = style.getPropertyValue(fallback).trim();
-					if (value) break;
-				}
-			}
-			return value || undefined;
-		};
-
-		return {
-			// Core colors: editor first, terminal as fallback (matches font settings priority)
-			foreground: get(
-				"--vscode-editor-foreground",
-				"--vscode-foreground",
-				"--vscode-terminal-foreground",
-			),
-			background: get(
-				"--vscode-editor-background",
-				"--vscode-panel-background",
-				"--vscode-terminal-background",
-			),
-			cursor: get(
-				"--vscode-editorCursor-foreground",
-				"--vscode-terminalCursor-foreground",
-			),
-			cursorAccent: get(
-				"--vscode-editorCursor-background",
-				"--vscode-editor-background",
-			),
-			// Use editor selection colors for consistency with VS Code editor tabs
-			selectionBackground: get(
-				"--vscode-editor-selectionBackground",
-				"--vscode-terminal-selectionBackground",
-			),
-			selectionForeground: get(
-				"--vscode-editor-selectionForeground",
-				"--vscode-terminal-selectionForeground",
-			),
-			// ANSI colors: terminal-specific (no editor equivalents), fall back to ghostty-web defaults
-			black: get("--vscode-terminal-ansiBlack"),
-			red: get("--vscode-terminal-ansiRed"),
-			green: get("--vscode-terminal-ansiGreen"),
-			yellow: get("--vscode-terminal-ansiYellow"),
-			blue: get("--vscode-terminal-ansiBlue"),
-			magenta: get("--vscode-terminal-ansiMagenta"),
-			cyan: get("--vscode-terminal-ansiCyan"),
-			white: get("--vscode-terminal-ansiWhite"),
-			brightBlack: get("--vscode-terminal-ansiBrightBlack"),
-			brightRed: get("--vscode-terminal-ansiBrightRed"),
-			brightGreen: get("--vscode-terminal-ansiBrightGreen"),
-			brightYellow: get("--vscode-terminal-ansiBrightYellow"),
-			brightBlue: get("--vscode-terminal-ansiBrightBlue"),
-			brightMagenta: get("--vscode-terminal-ansiBrightMagenta"),
-			brightCyan: get("--vscode-terminal-ansiBrightCyan"),
-			brightWhite: get("--vscode-terminal-ansiBrightWhite"),
-		};
-	}
-
-	// Apply initial theme from CSS variables
+	// Apply initial theme from CSS variables (uses extracted module)
 	term.options.theme = getVSCodeThemeColors();
 
-	// Watch for theme changes via MutationObserver
-	// - body class changes: when VS Code switches dark/light theme
-	// - documentElement style changes: when colorCustomizations or theme colors change
-	const themeObserver = new MutationObserver(() => {
-		term.options.theme = getVSCodeThemeColors();
-	});
-	themeObserver.observe(document.body, {
-		attributes: true,
-		attributeFilter: ["class"],
-	});
-	themeObserver.observe(document.documentElement, {
-		attributes: true,
-		attributeFilter: ["style"],
+	// Watch for theme changes (uses extracted module)
+	createThemeObserver((theme) => {
+		term.options.theme = theme;
 	});
 
-	// ============================================================================
-	// Search in Terminal (Cmd+F / Ctrl+F)
-	// ============================================================================
-
-	// Create search overlay UI
-	const searchOverlay = document.createElement("div");
-	searchOverlay.id = "search-overlay";
-	searchOverlay.innerHTML = `
-    <div class="search-container">
-      <input type="text" id="search-input" placeholder="Search..." />
-      <span id="search-results-count"></span>
-      <button id="search-prev" title="Previous (Shift+Enter)">▲</button>
-      <button id="search-next" title="Next (Enter)">▼</button>
-      <button id="search-close" title="Close (Escape)">✕</button>
-    </div>
-  `;
-	searchOverlay.style.display = "none";
-	document.body.appendChild(searchOverlay);
-
-	const searchInput = document.getElementById(
-		"search-input",
-	) as HTMLInputElement;
-	const searchResultsCount = document.getElementById("search-results-count")!;
-	const searchPrevBtn = document.getElementById("search-prev")!;
-	const searchNextBtn = document.getElementById("search-next")!;
-	const searchCloseBtn = document.getElementById("search-close")!;
-
-	// Search state
-	let searchMatches: Array<{ row: number; startCol: number; endCol: number }> =
-		[];
-	let currentMatchIndex = -1;
-
-	// Extract all terminal lines for searching
-	function getTerminalLines(): string[] {
-		const lines: string[] = [];
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const buffer = (term as any).buffer;
-		if (!buffer?.active) return lines;
-
-		const scrollbackLength = buffer.active.length || 0;
-		for (let y = 0; y < scrollbackLength; y++) {
-			const line = buffer.active.getLine(y);
-			if (line) {
-				lines.push(line.translateToString(true));
-			}
-		}
-		return lines;
-	}
-
-	// Perform search and find all matches
-	function performSearch(query: string): void {
-		searchMatches = [];
-		currentMatchIndex = -1;
-
-		if (!query) {
-			updateSearchUI();
-			term.clearSelection?.();
-			return;
-		}
-
-		const lines = getTerminalLines();
-		const lowerQuery = query.toLowerCase();
-
-		for (let row = 0; row < lines.length; row++) {
-			const line = lines[row].toLowerCase();
-			let col = 0;
-			while ((col = line.indexOf(lowerQuery, col)) !== -1) {
-				searchMatches.push({
-					row,
-					startCol: col,
-					endCol: col + query.length - 1,
-				});
-				col += 1; // Move past this match to find overlapping matches
-			}
-		}
-
-		updateSearchUI();
-
-		// Auto-select first match
-		if (searchMatches.length > 0) {
-			currentMatchIndex = 0;
-			highlightCurrentMatch();
-		} else {
-			term.clearSelection?.();
-		}
-	}
-
-	// Update search UI with results count
-	function updateSearchUI(): void {
-		if (searchMatches.length === 0) {
-			searchResultsCount.textContent = searchInput.value ? "No results" : "";
-		} else {
-			searchResultsCount.textContent = `${currentMatchIndex + 1} of ${searchMatches.length}`;
-		}
-	}
-
-	// Highlight the current match by selecting it
-	function highlightCurrentMatch(): void {
-		if (currentMatchIndex < 0 || currentMatchIndex >= searchMatches.length)
-			return;
-
-		const match = searchMatches[currentMatchIndex];
-		// Use terminal's select API to highlight the match
-		// Need to scroll to the match row and select
-		const viewportRows = term.rows;
-
-		// Get scrollback length (excluding visible rows)
-		// buffer.active.length = scrollback + visible rows, so subtract term.rows
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const scrollbackLength =
-			(term as any).getScrollbackLength?.() ??
-			((term as any).buffer?.active?.length || 0) - viewportRows;
-
-		// Calculate scroll position to center the match in viewport
-		// In ghostty-web: viewportY = 0 at bottom, viewportY = scrollbackLength at top
-		// Buffer row `r` is visible when: r = scrollbackLength - viewportY + viewportRow
-		// So to show buffer row `match.row` at center of viewport:
-		// match.row = scrollbackLength - viewportY + (viewportRows / 2)
-		// viewportY = scrollbackLength - match.row + (viewportRows / 2)
-		const targetViewportY = Math.max(
-			0,
-			Math.min(
-				scrollbackLength,
-				scrollbackLength - match.row + Math.floor(viewportRows / 2),
-			),
-		);
-
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		(term as any).scrollToLine?.(targetViewportY);
-
-		// After scrolling, convert absolute buffer row to viewport-relative row
-		// viewportRow = match.row - scrollbackLength + viewportY
-		// Since we just set viewportY = targetViewportY:
-		const viewportRelativeRow = match.row - scrollbackLength + targetViewportY;
-
-		// Only select if the row is within viewport bounds
-		if (viewportRelativeRow >= 0 && viewportRelativeRow < viewportRows) {
-			term.select?.(
-				match.startCol,
-				viewportRelativeRow,
-				match.endCol - match.startCol + 1,
-			);
-		}
-
-		updateSearchUI();
-	}
-
-	// Navigate to next match
-	function goToNextMatch(): void {
-		if (searchMatches.length === 0) return;
-		currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
-		highlightCurrentMatch();
-	}
-
-	// Navigate to previous match
-	function goToPrevMatch(): void {
-		if (searchMatches.length === 0) return;
-		currentMatchIndex =
-			(currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
-		highlightCurrentMatch();
-	}
-
-	// Show search overlay
-	function showSearch(): void {
-		searchOverlay.style.display = "block";
-		searchInput.focus();
-		searchInput.select();
-	}
-
-	// Hide search overlay
-	function hideSearch(): void {
-		searchOverlay.style.display = "none";
-		searchInput.value = "";
-		searchMatches = [];
-		currentMatchIndex = -1;
-		searchResultsCount.textContent = "";
-		term.clearSelection?.();
-		term.focus?.();
-	}
-
-	// Search input handlers
-	searchInput.addEventListener("input", () => {
-		performSearch(searchInput.value);
-	});
-
-	searchInput.addEventListener("keydown", (e) => {
-		if (e.key === "Enter") {
-			e.preventDefault();
-			if (e.shiftKey) {
-				goToPrevMatch();
-			} else {
-				goToNextMatch();
-			}
-		} else if (e.key === "Escape") {
-			e.preventDefault();
-			hideSearch();
-		}
-	});
-
-	searchPrevBtn.addEventListener("click", goToPrevMatch);
-	searchNextBtn.addEventListener("click", goToNextMatch);
-	searchCloseBtn.addEventListener("click", hideSearch);
+	// Create search controller (uses extracted module)
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const searchController = createSearchController(term as any);
 
 	// Keybinding passthrough: let VS Code handle Cmd/Ctrl combos
 	// Uses extracted utilities for testability
@@ -618,7 +261,7 @@ interface WebviewState {
 			// Intercept Cmd+F / Ctrl+F for search (uses extracted utility)
 			if (isSearchShortcut(event, IS_MAC)) {
 				event.preventDefault();
-				showSearch();
+				searchController.show();
 				return true; // We handled it
 			}
 
@@ -680,12 +323,17 @@ interface WebviewState {
 				currentCwd = msg.cwd;
 				// State is saved periodically and on visibility change, no need to save here
 				break;
-			case "file-exists-result": {
-				// Resolve pending file existence check
-				const callback = pendingFileChecks.get(msg.requestId);
-				if (callback) {
-					pendingFileChecks.delete(msg.requestId);
-					callback(msg.exists);
+			case "batch-file-exists-result": {
+				// Resolve batch file existence checks
+				for (const result of msg.results) {
+					const callbacks = batchPendingPaths.get(result.path);
+					if (callbacks) {
+						batchPendingPaths.delete(result.path);
+						fileCache.set(result.path, result.exists);
+						for (const cb of callbacks) {
+							cb(result.exists);
+						}
+					}
 				}
 				break;
 			}

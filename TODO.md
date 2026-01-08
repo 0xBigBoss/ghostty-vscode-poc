@@ -8,15 +8,23 @@
 - [x] Shift+click to extend selection (native xterm.js feature)
 - [x] Scrollback persistence (already implemented with vscode.setState)
 - [x] LRU cache for file existence (already implemented in file-cache.ts)
+- [x] Batch checkFileExists requests (50ms debounce, parallel fs.stat)
+- [x] Profile and optimize link detection regex (pre-compiled, early-out)
 
-## In Progress
-- [ ] Batch checkFileExists requests
+## Completed (Iteration 2)
+- [x] Split webview/main.ts into modules (503 lines -> 4 focused modules)
+  - file-link-provider.ts (207 lines)
+  - search-controller.ts (254 lines)
+  - theme-utils.ts (100 lines)
 
 ## Pending
-- [ ] Split webview/main.ts into modules
-- [ ] Export proper TypeScript types from ghostty-web
-- [ ] Profile and optimize link detection regex
-- [ ] Implement split panes
+- [ ] Export proper TypeScript types from ghostty-web (requires ghostty-web changes)
+- [ ] Implement split panes (large feature)
+
+## Notes
+- Many features were already implemented but not marked in backlog
+- Split panes is the largest remaining feature
+- Code quality items (module splitting, types) can be done incrementally
 
 ## Blocked
 (none)

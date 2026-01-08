@@ -9,15 +9,15 @@
 
 ## Code Quality
 
-- [ ] Split `webview/main.ts` into modules (FilePathLinkProvider, theme handling, keybindings)
-- [ ] Export proper TypeScript types from ghostty-web (eliminate `any` casts)
+- [x] Split `webview/main.ts` into modules (file-link-provider.ts, search-controller.ts, theme-utils.ts)
+- [ ] Export proper TypeScript types from ghostty-web (blocked: requires ghostty-web changes)
 - [x] Add unit tests for path resolution, message handling, keybinding logic
 
 ## Performance
 
-- [ ] Batch `checkFileExists` requests (queue paths, single round-trip)
+- [x] Batch `checkFileExists` requests (50ms debounce, parallel fs.stat)
 - [x] Add LRU cache for file existence results (implemented in file-cache.ts)
-- [ ] Profile and optimize link detection regex
+- [x] Profile and optimize link detection regex (pre-compiled patterns, early-out)
 
 ## Features
 

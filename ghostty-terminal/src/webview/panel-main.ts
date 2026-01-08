@@ -64,8 +64,11 @@ interface PanelTerminal {
 
 	// File existence cache
 	const fileCache = createFileCache(5000, 100);
-	const pendingFileChecks = new Map<string, (exists: boolean) => void>();
-	let requestIdCounter = 0;
+
+	// Batching state for file existence checks (reduced round-trips)
+	const batchPendingPaths = new Map<string, Array<(exists: boolean) => void>>();
+	let batchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	const BATCH_DEBOUNCE_MS = 50;
 
 	// Platform detection
 	const IS_MAC = isMacPlatform(navigator);
@@ -96,6 +99,10 @@ interface PanelTerminal {
 
 	if (!Terminal) throw new Error("ghostty-web Terminal not found");
 	if (!FitAddon) throw new Error("ghostty-web FitAddon not found");
+
+	// Pre-compiled file path pattern for link detection performance
+	const FILE_PATH_PATTERN_SINGLE =
+		/^((?:[a-zA-Z]:)?(?:\.{0,2}[\\/])?[\w.\\/-]+\.[a-zA-Z0-9]+)(?:[:(](\d+)(?:[,:](\d+))?[\])]?)?$/;
 
 	// DOM elements
 	const tabList = document.getElementById("tab-list")!;
@@ -162,7 +169,30 @@ interface PanelTerminal {
 		};
 	}
 
-	// Check if a file exists via extension (for future hyperlink detection)
+	// Flush batch of file existence checks to extension
+	function flushBatchFileChecks(terminalId: TerminalId): void {
+		if (batchPendingPaths.size === 0) return;
+
+		const paths = Array.from(batchPendingPaths.keys());
+		vscode.postMessage({
+			type: "batch-check-file-exists",
+			terminalId,
+			paths,
+		});
+
+		// Set timeout for batch - if no response, resolve all as false
+		setTimeout(() => {
+			for (const [path, callbacks] of batchPendingPaths) {
+				fileCache.set(path, false);
+				for (const cb of callbacks) {
+					cb(false);
+				}
+			}
+			batchPendingPaths.clear();
+		}, 2000);
+	}
+
+	// Check if a file exists via extension (with caching and batching)
 	function _checkFileExists(
 		path: string,
 		terminalId: TerminalId,
@@ -173,24 +203,22 @@ interface PanelTerminal {
 		}
 
 		return new Promise((resolve) => {
-			const requestId = `req-${requestIdCounter++}`;
-			pendingFileChecks.set(requestId, (exists: boolean) => {
-				fileCache.set(path, exists);
-				resolve(exists);
-			});
-			vscode.postMessage({
-				type: "check-file-exists",
-				terminalId,
-				requestId,
-				path,
-			});
-			setTimeout(() => {
-				if (pendingFileChecks.has(requestId)) {
-					pendingFileChecks.delete(requestId);
-					fileCache.set(path, false);
-					resolve(false);
-				}
-			}, 2000);
+			// Add to batch queue
+			const existing = batchPendingPaths.get(path);
+			if (existing) {
+				existing.push(resolve);
+			} else {
+				batchPendingPaths.set(path, [resolve]);
+			}
+
+			// Reset debounce timer
+			if (batchDebounceTimer) {
+				clearTimeout(batchDebounceTimer);
+			}
+			batchDebounceTimer = setTimeout(() => {
+				batchDebounceTimer = null;
+				flushBatchFileChecks(terminalId);
+			}, BATCH_DEBOUNCE_MS);
 		});
 	}
 
@@ -249,9 +277,8 @@ interface PanelTerminal {
 			rows: 24,
 			onLinkClick: (url: string, event: MouseEvent) => {
 				if (event.ctrlKey || event.metaKey) {
-					const fileMatch = url.match(
-						/^((?:[a-zA-Z]:)?(?:\.{0,2}[\\/])?[\w.\\/-]+\.[a-zA-Z0-9]+)(?:[:(](\d+)(?:[,:](\d+))?[\])]?)?$/,
-					);
+					// Use pre-compiled pattern for performance
+					const fileMatch = url.match(FILE_PATH_PATTERN_SINGLE);
 					if (fileMatch) {
 						const [, filePath, lineStr, colStr] = fileMatch;
 						const terminal = terminals.get(id);
@@ -689,11 +716,17 @@ interface PanelTerminal {
 				break;
 			}
 
-			case "file-exists-result": {
-				const callback = pendingFileChecks.get(msg.requestId);
-				if (callback) {
-					pendingFileChecks.delete(msg.requestId);
-					callback(msg.exists);
+			case "batch-file-exists-result": {
+				// Batch file existence response
+				for (const result of msg.results) {
+					const callbacks = batchPendingPaths.get(result.path);
+					if (callbacks) {
+						batchPendingPaths.delete(result.path);
+						fileCache.set(result.path, result.exists);
+						for (const cb of callbacks) {
+							cb(result.exists);
+						}
+					}
 				}
 				break;
 			}

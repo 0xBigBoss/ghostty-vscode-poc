@@ -379,12 +379,8 @@ export class TerminalManager implements vscode.Disposable {
 			case "open-file":
 				this.handleOpenFile(message.path, message.line, message.column);
 				break;
-			case "check-file-exists":
-				this.handleCheckFileExists(
-					message.terminalId,
-					message.requestId,
-					message.path,
-				);
+			case "batch-check-file-exists":
+				this.handleBatchCheckFileExists(message.terminalId, message.paths);
 				break;
 			case "terminal-bell":
 				this.handleTerminalBell(message.terminalId);
@@ -618,28 +614,29 @@ export class TerminalManager implements vscode.Disposable {
 		}
 	}
 
-	private async handleCheckFileExists(
+	private async handleBatchCheckFileExists(
 		terminalId: TerminalId,
-		requestId: string,
-		path: string,
+		paths: string[],
 	): Promise<void> {
 		const instance = this.terminals.get(terminalId);
 		if (!instance) return;
 
-		try {
-			await vscode.workspace.fs.stat(vscode.Uri.file(path));
-			this.postToTerminal(terminalId, {
-				type: "file-exists-result",
-				requestId,
-				exists: true,
-			});
-		} catch {
-			this.postToTerminal(terminalId, {
-				type: "file-exists-result",
-				requestId,
-				exists: false,
-			});
-		}
+		// Check all paths in parallel
+		const results = await Promise.all(
+			paths.map(async (path) => {
+				try {
+					await vscode.workspace.fs.stat(vscode.Uri.file(path));
+					return { path, exists: true };
+				} catch {
+					return { path, exists: false };
+				}
+			}),
+		);
+
+		this.postToTerminal(terminalId, {
+			type: "batch-file-exists-result",
+			results,
+		});
 	}
 
 	private handleTerminalBell(id: TerminalId): void {
