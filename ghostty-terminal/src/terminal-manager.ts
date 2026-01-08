@@ -380,7 +380,11 @@ export class TerminalManager implements vscode.Disposable {
 				this.handleOpenFile(message.path, message.line, message.column);
 				break;
 			case "batch-check-file-exists":
-				this.handleBatchCheckFileExists(message.terminalId, message.paths);
+				this.handleBatchCheckFileExists(
+					message.terminalId,
+					message.batchId,
+					message.paths,
+				);
 				break;
 			case "terminal-bell":
 				this.handleTerminalBell(message.terminalId);
@@ -616,6 +620,7 @@ export class TerminalManager implements vscode.Disposable {
 
 	private async handleBatchCheckFileExists(
 		terminalId: TerminalId,
+		batchId: number,
 		paths: string[],
 	): Promise<void> {
 		const instance = this.terminals.get(terminalId);
@@ -635,6 +640,7 @@ export class TerminalManager implements vscode.Disposable {
 
 		this.postToTerminal(terminalId, {
 			type: "batch-file-exists-result",
+			batchId,
 			results,
 		});
 	}

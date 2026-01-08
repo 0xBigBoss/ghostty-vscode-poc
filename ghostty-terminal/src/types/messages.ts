@@ -51,6 +51,7 @@ export type ExtensionMessage =
 	| { type: "update-cwd"; terminalId: TerminalId; cwd: string }
 	| {
 			type: "batch-file-exists-result";
+			batchId: number;
 			results: Array<{ path: string; exists: boolean }>;
 	  }
 	| { type: "update-config"; config: RuntimeConfig };
@@ -97,6 +98,7 @@ export type WebviewMessage =
 	| {
 			type: "batch-check-file-exists";
 			terminalId: TerminalId;
+			batchId: number;
 			paths: string[];
 	  }
 	| { type: "terminal-bell"; terminalId: TerminalId };
